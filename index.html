@@ -1322,6 +1322,7 @@
           <button class="export-btn" onclick="openDailyPlanReportModal()"><span class="ico">📄</span> Share report</button>
         </div>
       </div>
+      <div id="dpKeyDatesStrip" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;background:var(--panel-2);border-radius:10px;margin-bottom:10px;"></div>
       <div class="cal-scroll-wrap" id="dailyPlanScrollWrap" style="overflow-x:auto; overflow-y:auto; max-height:calc(100vh - 280px); border-radius:12px; border:1px solid var(--border-soft); position:relative; max-width:100%;">
         <div class="cal-grid" id="dailyPlanGrid" style="overflow:visible; min-width:max-content;"></div>
       </div>
@@ -1330,6 +1331,29 @@
         <span><span class="dot" style="background:var(--amber)"></span>L = on leave that day</span>
         <span>A person can be assigned to more than one project on the same day — assign again with a different project to add it alongside</span>
       </div>
+    </div>
+
+    <!-- Release Execution Tracker -->
+    <div class="panel" id="releaseExecTrackerPanel">
+      <div class="panel-head">
+        <div>
+          <h3>📊 Release execution tracker</h3>
+          <div class="desc">Planned vs actual PD burned per release item, based on this month's daily plan</div>
+        </div>
+      </div>
+      <div id="releaseExecTrackerBody"></div>
+    </div>
+
+    <!-- Merged Build — Important Dates -->
+    <div class="panel" id="mergedBuildDatesPanel">
+      <div class="panel-head">
+        <div>
+          <h3>🧩 Merged build — important dates</h3>
+          <div class="desc">Component-wise key dates for the merged build</div>
+        </div>
+        <button class="action" onclick="addMergedBuildDateRow()">+ Add component date entry</button>
+      </div>
+      <div id="mergedBuildDatesBody"></div>
     </div>
 
     <!-- AI Assistant Panel -->
@@ -4609,6 +4633,7 @@ async function loadState() {
       state.buildDelayNotifications = Array.isArray(parsed.buildDelayNotifications) ? parsed.buildDelayNotifications : [];
       state.notifications           = [];
       state.dismissedAlerts         = Array.isArray(parsed.dismissedAlerts)         ? parsed.dismissedAlerts         : [];
+      state.mergedBuildDates        = Array.isArray(parsed.mergedBuildDates)        ? parsed.mergedBuildDates        : [];
 
       // Load from field tables — will override resource_planner data if rows exist
       await Promise.all([
@@ -12906,6 +12931,24 @@ function renderDailyPlan() {
     </div>`;
   });
 
+  // Go Ahead / QA Completion milestones for this month
+  const monthMilestones = [];
+  state.projects.forEach(p => {
+    const ga = p.goAheadDate || '';
+    const qc = p.completionDate || '';
+    if (ga) {
+      const dg = new Date(ga + 'T00:00:00');
+      if (dg.getFullYear() === dayYear && dg.getMonth() === dayMonth) monthMilestones.push({ date: ga, type: 'goAhead', name: p.name });
+    }
+    if (qc) {
+      const dc = new Date(qc + 'T00:00:00');
+      if (dc.getFullYear() === dayYear && dc.getMonth() === dayMonth) monthMilestones.push({ date: qc, type: 'completion', name: p.name });
+    }
+  });
+  const milestonesByDate = {};
+  monthMilestones.forEach(m => { (milestonesByDate[m.date] = milestonesByDate[m.date] || []).push(m); });
+  renderDpKeyDatesStrip(monthMilestones, monthNames);
+
   // Date rows
   for (let d = 1; d <= daysInMonth; d++) {
     const dateObj = new Date(dayYear, dayMonth, d);
@@ -12913,8 +12956,18 @@ function renderDailyPlan() {
     const nonWorking = !isWorkingDay(dateObj, dateKey);
     const holidayMatch = state.holidays.find(h => h.date === dateKey);
     const dateLabel = formatDateShort(dateKey);
+    const dayMilestones = milestonesByDate[dateKey] || [];
+    let milestoneMarker = '';
+    if (dayMilestones.length === 1) {
+      const m = dayMilestones[0];
+      const dotColor = m.type === 'goAhead' ? '#2563eb' : '#15803d';
+      milestoneMarker = `<span title="${escapeHtml(m.name)} — ${m.type === 'goAhead' ? 'Go ahead' : 'QA completion'}" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dotColor};margin-left:6px;vertical-align:middle;"></span>`;
+    } else if (dayMilestones.length > 1) {
+      const tip = dayMilestones.map(m => m.name + ' (' + (m.type === 'goAhead' ? 'Go ahead' : 'QA completion') + ')').join(', ');
+      milestoneMarker = `<span title="${escapeHtml(tip)}" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#7c3aed;color:white;font-size:9px;font-weight:700;margin-left:6px;vertical-align:middle;">${dayMilestones.length}</span>`;
+    }
 
-    html += `<div class="cal-cell name" style="position:sticky;left:0;z-index:5;min-width:${COL_DATE}px;width:${COL_DATE}px;${nonWorking?'opacity:0.55;':''}" title="${holidayMatch?escapeHtml(holidayMatch.name):''}">${dateLabel}</div>`;
+    html += `<div class="cal-cell name" style="position:sticky;left:0;z-index:5;min-width:${COL_DATE}px;width:${COL_DATE}px;${nonWorking?'opacity:0.55;':''}" title="${holidayMatch?escapeHtml(holidayMatch.name):''}">${dateLabel}${milestoneMarker}</div>`;
     html += `<div class="cal-cell" style="position:sticky;left:${COL_DATE}px;z-index:5;background:var(--panel);${nonWorking?'opacity:0.55;':''}">${dayNames[dateObj.getDay()]}</div>`;
 
     filteredPeople.forEach(p => {
@@ -12974,9 +13027,207 @@ function renderDailyPlan() {
     });
   }
   grid.innerHTML = html;
+  renderReleaseExecTracker();
+  renderMergedBuildDates();
 }
 
 
+
+// ====================== KEY DATES STRIP ======================
+function renderDpKeyDatesStrip(monthMilestones, monthNames) {
+  const el = document.getElementById('dpKeyDatesStrip');
+  if (!el) return;
+  if (!monthMilestones || monthMilestones.length === 0) {
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  const byDate = {};
+  monthMilestones.forEach(m => { (byDate[m.date] = byDate[m.date] || []).push(m); });
+  const dates = Object.keys(byDate).sort();
+
+  const pills = dates.map(dateKey => {
+    const items = byDate[dateKey];
+    const label = formatDateShort(dateKey);
+    const rowId = 'dpms-' + dateKey.replace(/-/g, '');
+    if (items.length === 1) {
+      const m = items[0];
+      const bg = m.type === 'goAhead' ? '#dbeafe' : '#dcfce7';
+      const fg = m.type === 'goAhead' ? '#1d4ed8' : '#15803d';
+      const icon = m.type === 'goAhead' ? '🚀' : '🏁';
+      return `<span style="font-size:12px;background:${bg};color:${fg};padding:3px 11px;border-radius:20px;font-weight:600;white-space:nowrap;">${icon} ${label} — ${escapeHtml(m.name)}</span>`;
+    }
+    return `<button id="${rowId}-pill" onclick="toggleDpMilestoneGroup('${rowId}')" style="font-size:12px;background:#f3e8ff;color:#7e22ce;padding:3px 11px;border-radius:20px;font-weight:600;border:none;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;">📌 ${label} — ${items.length} milestones <span id="${rowId}-chev" style="font-size:9px;">▾</span></button>
+      <div id="${rowId}-list" style="display:none;width:100%;flex-direction:column;gap:3px;padding:6px 10px;background:var(--panel);border-radius:8px;margin-top:2px;">
+        ${items.map(m => `<span style="font-size:11.5px;">${m.type === 'goAhead' ? '🚀' : '🏁'} ${escapeHtml(m.name)} — ${m.type === 'goAhead' ? 'Go ahead' : 'QA completion'}</span>`).join('')}
+      </div>`;
+  }).join('');
+
+  el.style.display = 'flex';
+  el.innerHTML = `<span style="font-size:11px;color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">📌 Key dates</span>${pills}`;
+}
+
+function toggleDpMilestoneGroup(rowId) {
+  const list = document.getElementById(rowId + '-list');
+  const chev = document.getElementById(rowId + '-chev');
+  if (!list) return;
+  const open = list.style.display === 'flex';
+  list.style.display = open ? 'none' : 'flex';
+  if (chev) chev.textContent = open ? '▾' : '▴';
+}
+
+// ====================== RELEASE EXECUTION TRACKER ======================
+function renderReleaseExecTracker() {
+  const body = document.getElementById('releaseExecTrackerBody');
+  if (!body) return;
+
+  // Actual PD burned per project name — count each working-day assignment as 1 PD
+  const burnedByProject = {};
+  state.dailyPlan.forEach(e => {
+    if (!e.project) return;
+    const key = e.project.trim().toLowerCase();
+    if (e.date) {
+      const d = new Date(e.date + 'T00:00:00');
+      if (isWorkingDay(d, e.date)) burnedByProject[key] = (burnedByProject[key] || 0) + 1;
+    } else if (e.startDate && e.endDate) {
+      let cur = new Date(e.startDate + 'T00:00:00');
+      const end = new Date(e.endDate + 'T00:00:00');
+      while (cur <= end) {
+        const dk = cur.getFullYear() + '-' + String(cur.getMonth()+1).padStart(2,'0') + '-' + String(cur.getDate()).padStart(2,'0');
+        if (isWorkingDay(cur, dk)) burnedByProject[key] = (burnedByProject[key] || 0) + 1;
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+  });
+
+  const rows = state.projects.filter(p => burnedByProject[p.name.trim().toLowerCase()] > 0);
+
+  if (rows.length === 0) {
+    body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-faint);font-style:italic;font-size:13px;">No release items have daily plan assignments yet.</div>';
+    return;
+  }
+
+  const rowsHtml = rows.map(p => {
+    const planned = parseFloat(p.effort) || 0;
+    const burned = burnedByProject[p.name.trim().toLowerCase()] || 0;
+    const diff = planned - burned;
+    let varBadge;
+    if (diff > 0) varBadge = `<span style="background:#dcfce7;color:#15803d;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;">${diff} PD ahead</span>`;
+    else if (diff < 0) varBadge = `<span style="background:#fee2e2;color:#dc2626;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;">${Math.abs(diff)} PD over</span>`;
+    else varBadge = `<span style="background:#f1f5f9;color:#64748b;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;">On track</span>`;
+    const canEditDP = canEdit('dailyplan');
+    const reasonCell = diff < 0
+      ? (canEditDP
+          ? `<input type="text" value="${escapeHtml(p.delayReason || '')}" placeholder="Add reason" onchange="saveDelayReason('${p.id}',this.value)" style="width:100%;font-size:12px;padding:4px 8px;">`
+          : `<span style="font-size:12px;color:var(--text-dim);">${escapeHtml(p.delayReason || '—')}</span>`)
+      : '<span style="color:var(--text-faint);">—</span>';
+    return `<tr>
+      <td style="padding:8px 10px;font-weight:600;">${escapeHtml(p.name)}</td>
+      <td style="padding:8px 10px;text-align:right;">${planned}</td>
+      <td style="padding:8px 10px;text-align:right;">${burned}</td>
+      <td style="padding:8px 10px;text-align:right;">${varBadge}</td>
+      <td style="padding:8px 10px;">${reasonCell}</td>
+    </tr>`;
+  }).join('');
+
+  body.innerHTML = `<div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+      <thead><tr style="border-bottom:1px solid var(--border-soft);">
+        <th style="padding:8px 10px;text-align:left;color:var(--text-faint);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Release item</th>
+        <th style="padding:8px 10px;text-align:right;color:var(--text-faint);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Planned PD</th>
+        <th style="padding:8px 10px;text-align:right;color:var(--text-faint);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Actual PD burned</th>
+        <th style="padding:8px 10px;text-align:right;color:var(--text-faint);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Variance</th>
+        <th style="padding:8px 10px;text-align:left;color:var(--text-faint);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Delay reason</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  </div>`;
+}
+
+function saveDelayReason(projId, value) {
+  const proj = state.projects.find(p => p.id === projId);
+  if (!proj) return;
+  proj.delayReason = value;
+  saveRelease(proj);
+}
+
+// ====================== MERGED BUILD — IMPORTANT DATES ======================
+function renderMergedBuildDates() {
+  const body = document.getElementById('mergedBuildDatesBody');
+  if (!body) return;
+  if (!state.mergedBuildDates) state.mergedBuildDates = [];
+
+  const components = [...new Set(state.projects.map(p => p.component).filter(Boolean))];
+  const canEditDP = canEdit('dailyplan');
+
+  if (state.mergedBuildDates.length === 0) {
+    body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-faint);font-style:italic;font-size:13px;">No component dates added yet.</div>';
+    return;
+  }
+
+  const fields = [
+    ['goAheadDate', 'Go ahead'],
+    ['devToQaDate', 'Dev→QA merged build'],
+    ['bvtDate', 'BVT completion'],
+    ['regressionDate', 'Regression completion'],
+    ['releaseDate', 'Release date'],
+  ];
+
+  const rowsHtml = state.mergedBuildDates.map(row => {
+    const compOptions = ['<option value="">— select —</option>']
+      .concat(components.map(c => `<option value="${escapeHtml(c)}" ${row.component === c ? 'selected' : ''}>${escapeHtml(c)}</option>`))
+      .join('');
+    const compCell = canEditDP
+      ? `<select onchange="updateMergedBuildDateField('${row.id}','component',this.value)" style="font-size:12px;padding:4px 6px;">${compOptions}</select>`
+      : `<span style="background:#f0fdf4;color:#15803d;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;">${escapeHtml(row.component || '—')}</span>`;
+    const dateCells = fields.map(([key]) => canEditDP
+      ? `<td style="padding:6px 8px;"><input type="date" value="${row[key] || ''}" onchange="updateMergedBuildDateField('${row.id}','${key}',this.value)" style="font-size:12px;padding:4px 6px;"></td>`
+      : `<td style="padding:6px 8px;font-size:12px;">${row[key] ? formatDateDisplay(row[key]) : '—'}</td>`
+    ).join('');
+    const delBtn = canEditDP
+      ? `<td style="padding:6px 8px;"><button onclick="deleteMergedBuildDateRow('${row.id}')" title="Remove" style="background:#fee2e2;border:none;border-radius:4px;cursor:pointer;padding:3px 6px;font-size:11px;color:#dc2626;">✕</button></td>`
+      : '';
+    return `<tr>
+      <td style="padding:6px 8px;">${compCell}</td>
+      ${dateCells}
+      ${delBtn}
+    </tr>`;
+  }).join('');
+
+  const headerCells = fields.map(([, label]) => `<th style="padding:8px;text-align:left;color:var(--text-faint);font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;">${label}</th>`).join('');
+
+  body.innerHTML = `<div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px;">
+      <thead><tr style="border-bottom:1px solid var(--border-soft);">
+        <th style="padding:8px;text-align:left;color:var(--text-faint);font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;">Component</th>
+        ${headerCells}
+        ${canEditDP ? '<th></th>' : ''}
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  </div>`;
+}
+
+function addMergedBuildDateRow() {
+  if (!canEdit('dailyplan')) return;
+  if (!state.mergedBuildDates) state.mergedBuildDates = [];
+  state.mergedBuildDates.push({ id: uid(), component: '', goAheadDate: '', devToQaDate: '', bvtDate: '', regressionDate: '', releaseDate: '' });
+  saveState();
+  renderMergedBuildDates();
+}
+
+function updateMergedBuildDateField(rowId, field, value) {
+  const row = state.mergedBuildDates.find(r => r.id === rowId);
+  if (!row) return;
+  row[field] = value;
+  saveState();
+}
+
+function deleteMergedBuildDateRow(rowId) {
+  state.mergedBuildDates = state.mergedBuildDates.filter(r => r.id !== rowId);
+  saveState();
+  renderMergedBuildDates();
+}
 
 // ====================== TEAM CHAT ======================
 // Completely independent — does not touch any existing state or functions
