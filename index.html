@@ -6,6 +6,7 @@
 <title>TeamLens</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%234f46e5'/%3E%3Cstop offset='50%25' stop-color='%237c3aed'/%3E%3Cstop offset='100%25' stop-color='%23a855f7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Ccircle cx='13.5' cy='13.5' r='5.5' stroke='white' stroke-width='2.5' fill='none'/%3E%3Cline x1='17.5' y1='17.5' x2='23' y2='23' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=Inter+Tight:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap');
 
@@ -1507,6 +1508,48 @@
 
     <div id="testPlanBody" style="display:none;">
       <div class="panel">
+        <button type="button" onclick="toggleDimensionChecklistSummary()" style="display:flex; align-items:center; justify-content:space-between; width:100%; background:none; border:none; cursor:pointer; padding:4px; font-family:inherit;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span id="dcChevron" style="font-size:11px; color:var(--text-faint);">▸</span>
+            <span style="font-size:14px; font-weight:600;">Dimension checklist</span>
+            <span id="dcSummaryText" style="font-size:11.5px; color:var(--text-faint);">No rows yet</span>
+          </div>
+          <span onclick="event.stopPropagation();openDimensionChecklistModal();" style="font-size:11px; padding:4px 10px; border-radius:6px; border:1px solid var(--border); cursor:pointer;">⤢ Open</span>
+        </button>
+      </div>
+
+      <!-- Dimension Checklist Modal -->
+      <div class="modal-overlay" id="dimensionChecklistModal">
+        <div class="modal" style="max-width:820px;">
+          <h3>Dimension checklist</h3>
+          <div style="display:flex; gap:8px; margin:10px 0 12px;">
+            <button class="action" onclick="addDimensionRow()">+ Add row</button>
+            <button class="ghost" onclick="document.getElementById('dcExcelInput').click()">📥 Import from Excel</button>
+            <input type="file" id="dcExcelInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importDimensionChecklistExcel(event)">
+          </div>
+          <div style="max-height:360px; overflow-y:auto; border:1px solid var(--border-soft); border-radius:10px;">
+            <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+              <thead>
+                <tr style="background:var(--panel-2); position:sticky; top:0;">
+                  <th style="padding:7px 8px; text-align:left;">Scenario</th>
+                  <th style="padding:7px 8px; text-align:left;">Sub-scenario</th>
+                  <th style="padding:7px 8px; text-align:left;">Test cases</th>
+                  <th style="padding:7px 8px; text-align:right;">Count</th>
+                  <th style="padding:7px 8px; text-align:left;">Priority</th>
+                  <th style="padding:7px 8px;"></th>
+                </tr>
+              </thead>
+              <tbody id="dimensionChecklistBody"></tbody>
+            </table>
+          </div>
+          <div style="text-align:right; font-size:12.5px; color:var(--text-dim); margin:10px 0;" id="dcModalTotal"></div>
+          <div class="modal-actions">
+            <button class="ghost" onclick="closeDimensionChecklistModal()">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
         <div class="panel-head">
           <div>
             <h3>Estimate details — environment / execution plan</h3>
@@ -1598,7 +1641,8 @@
                 <td colspan="2" style="font-weight:600;">Buffer</td>
                 <td style="text-align:center; color:var(--text-faint);">—</td>
                 <td style="text-align:center;">
-                  <input id="testBufferEffort" type="number" min="0" step="0.5" placeholder="0" style="width:70px; text-align:center;" onchange="saveBufferValues()">
+                  <span id="testBufferEffortDisplay" style="font-weight:600;">0</span> PD
+                  <button type="button" onclick="toggleBufferPanel()" style="margin-left:6px; font-size:11px; padding:2px 8px; border-radius:6px; cursor:pointer;">✎ Edit</button>
                 </td>
                 <td colspan="2"></td>
               </tr>
@@ -1610,6 +1654,11 @@
               </tr>
             </tfoot>
           </table>
+        </div>
+        <div id="bufferPanel" style="display:none; margin-top:10px; padding:12px; background:var(--panel-2); border-radius:10px; border:1px solid var(--border-soft);">
+          <div style="font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:8px;">Buffer — reasons</div>
+          <div id="bufferRowsList" style="display:flex; flex-direction:column; gap:6px;"></div>
+          <button type="button" class="ghost" onclick="addBufferRow()" style="margin-top:8px; font-size:12px; padding:5px 10px;">+ Add reason</button>
         </div>
         <div class="empty-state" id="testRowEmpty" style="display:none;">No environments added yet for this project.</div>
       </div>
@@ -1644,6 +1693,7 @@
           <tbody>
             <tr><td style="width:280px; color:var(--text-dim);">Build pickup</td><td><input id="msBuildPickup" type="date" onchange="saveMilestones()" oninput="saveMilestones()"></td></tr>
             <tr><td style="color:var(--text-dim);">BVT completion</td><td><input id="msBvtCompletion" type="date" onchange="saveMilestones()" oninput="saveMilestones()"></td></tr>
+            <tr><td style="color:var(--text-dim);">P1 completion</td><td><input id="msP1Completion" type="date" onchange="saveMilestones()" oninput="saveMilestones()"></td></tr>
             <tr><td style="color:var(--text-dim);">Execution completion without buffer</td><td><input id="msExecNoBuffer" type="date" onchange="saveMilestones()" oninput="saveMilestones()"></td></tr>
             <tr><td style="color:var(--text-dim);">Execution completion with buffer</td><td><input id="msExecWithBuffer" type="date" onchange="saveMilestones()" oninput="saveMilestones()"></td></tr>
             <tr><td style="color:var(--text-dim);">Merged build go ahead</td><td><input id="msMergedBuildGoAhead" type="date" onchange="saveMilestones()" oninput="saveMilestones()"></td></tr>
@@ -1694,6 +1744,20 @@
           <span>on</span>
           <span id="reviewerDate" style="font-weight:600; color:var(--text);"></span>
           <button onclick="clearReviewApproval()" style="margin-left:auto; background:none; border:1px solid var(--border); border-radius:6px; padding:2px 10px; font-size:11px; color:var(--text-faint); cursor:pointer; font-family:inherit;" title="Undo review approval">↩ Undo review</button>
+        </div>
+      </div>
+
+      <!-- Move to Release Vault -->
+      <div class="panel" id="moveToVaultPanel" style="border:1.5px solid var(--border-soft);">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div style="width:44px; height:44px; border-radius:12px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0;">🔒</div>
+            <div>
+              <div style="font-weight:700; font-size:14px; color:var(--text);">Move to Release Vault</div>
+              <div style="font-size:12px; color:var(--text-faint); margin-top:2px;" id="moveToVaultDesc">Checking conditions…</div>
+            </div>
+          </div>
+          <button id="moveToVaultBtn" onclick="moveToReleaseVault()" disabled style="background:var(--panel-2); color:var(--text-faint); border:1px solid var(--border); border-radius:8px; padding:8px 16px; font-size:12.5px; font-weight:700; cursor:not-allowed; font-family:inherit;">🔒 Move to Vault</button>
         </div>
       </div>
     </div>
@@ -2893,6 +2957,7 @@ async function saveMilestonesRow(projId, ms) {
       project_id: projId,
       build_pickup: ms.buildPickup || '',
       bvt_completion: ms.bvtCompletion || '',
+      p1_completion: ms.p1Completion || '',
       exec_no_buffer: ms.execNoBuffer || '',
       exec_with_buffer: ms.execWithBuffer || '',
       merged_build_go_ahead: ms.mergedBuildGoAhead || '',
@@ -2906,7 +2971,9 @@ async function saveBufferRow(projId, plan) {
   try {
     await sbClient.from('test_plan_buffer').upsert({
       project_id: projId,
-      buffer_effort: plan.buffer?.effort || 0,
+      buffer_effort: getBufferTotal(plan),
+      buffer_rows: plan.buffer?.rows || [],
+      dimension_checklist: plan.dimensionChecklist || [],
       test_prep_effort: plan.testPrepEffort || 0,
       test_prep_assignee_ids: plan.testPrepAssigneeIds || [],
       test_prep_status: plan.testPrepStatus || 'Not yet started',
@@ -2957,6 +3024,7 @@ async function loadMilestonesRow(projId) {
     return {
       buildPickup: data.build_pickup || '',
       bvtCompletion: data.bvt_completion || '',
+      p1Completion: data.p1_completion || '',
       execNoBuffer: data.exec_no_buffer || '',
       execWithBuffer: data.exec_with_buffer || '',
       mergedBuildGoAhead: data.merged_build_go_ahead || ''
@@ -2974,7 +3042,8 @@ async function loadBufferRow(projId) {
       .maybeSingle();
     if (error || !data) return null;
     return {
-      buffer: { effort: data.buffer_effort || 0 },
+      buffer: { effort: data.buffer_effort || 0, rows: data.buffer_rows || [] },
+      dimensionChecklist: data.dimension_checklist || [],
       testPrepEffort: data.test_prep_effort || 0,
       testPrepAssigneeIds: data.test_prep_assignee_ids || [],
       testPrepStatus: data.test_prep_status || 'Not yet started',
@@ -3000,7 +3069,7 @@ async function loadFullTestPlanFromDB(projId) {
   state.testPlans[projId] = {
     ...existing,
     rows: rows,
-    milestones: ms || existing.milestones || { buildPickup:'', bvtCompletion:'', execNoBuffer:'', execWithBuffer:'', mergedBuildGoAhead:'' },
+    milestones: ms || existing.milestones || { buildPickup:'', bvtCompletion:'', p1Completion:'', execNoBuffer:'', execWithBuffer:'', mergedBuildGoAhead:'' },
     buffer: buf?.buffer || existing.buffer || { effort: 0 },
     testPrepEffort: buf?.testPrepEffort || existing.testPrepEffort || 0,
     testPrepAssigneeIds: buf?.testPrepAssigneeIds || existing.testPrepAssigneeIds || [],
@@ -3077,7 +3146,7 @@ function initFieldLevelRealtime() {
       if (!state.testPlans) state.testPlans = {};
       if (!state.testPlans[projId]) state.testPlans[projId] = { rows: [], milestones: {}, buffer: { effort: 0 } };
       if (payload.new) {
-        state.testPlans[projId].milestones = { buildPickup: payload.new.build_pickup, bvtCompletion: payload.new.bvt_completion, execNoBuffer: payload.new.exec_no_buffer, execWithBuffer: payload.new.exec_with_buffer, mergedBuildGoAhead: payload.new.merged_build_go_ahead };
+        state.testPlans[projId].milestones = { buildPickup: payload.new.build_pickup, bvtCompletion: payload.new.bvt_completion, p1Completion: payload.new.p1_completion, execNoBuffer: payload.new.exec_no_buffer, execWithBuffer: payload.new.exec_with_buffer, mergedBuildGoAhead: payload.new.merged_build_go_ahead };
       }
       syncTestPlanToProjects();
       const updProj = state.projects.find(p => p.id === projId);
@@ -3097,7 +3166,8 @@ function initFieldLevelRealtime() {
       if (!state.testPlans) state.testPlans = {};
       if (!state.testPlans[projId]) state.testPlans[projId] = { rows: [], milestones: {}, buffer: { effort: 0 } };
       if (payload.new) {
-        state.testPlans[projId].buffer = { effort: payload.new.buffer_effort };
+        state.testPlans[projId].buffer = { effort: payload.new.buffer_effort, rows: payload.new.buffer_rows || [] };
+        state.testPlans[projId].dimensionChecklist = payload.new.dimension_checklist || [];
         state.testPlans[projId].testPrepEffort = payload.new.test_prep_effort;
         state.testPlans[projId].testPrepAssigneeIds = payload.new.test_prep_assignee_ids || [];
         state.testPlans[projId].testPrepStatus = payload.new.test_prep_status;
@@ -6261,7 +6331,7 @@ function buildAllPlansHtml(projects) {
       })
     ];
 
-    const bufferEffort = plan.buffer && plan.buffer.effort ? plan.buffer.effort : 0;
+    const bufferEffort = getBufferTotal(plan);
     const totalEffort  = envRows.reduce((s,r) => s + (parseFloat(r.effort)||0), 0) + (parseFloat(bufferEffort)||0);
     const totalCases   = plan.rows.reduce((s,r) => s + (r.cases||0), 0);
 
@@ -6292,11 +6362,12 @@ function buildAllPlansHtml(projects) {
       '</tr>';
 
     const ms = plan.milestones || {};
-    const msHtml = (ms.buildPickup||ms.bvtCompletion||ms.execWithBuffer||ms.mergedBuildGoAhead)
+    const msHtml = (ms.buildPickup||ms.bvtCompletion||ms.p1Completion||ms.execWithBuffer||ms.mergedBuildGoAhead)
       ? '<div style="padding:10px 16px;border-top:1px solid var(--border-soft);display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-faint);">' +
           (ms.buildPickup        ? '<span>📥 Build pickup: <strong style="color:var(--text);">' + formatDateDisplay(ms.buildPickup) + '</strong></span>' : '') +
           (ms.bvtCompletion      ? '<span>🔬 BVT: <strong style="color:var(--text);">' + formatDateDisplay(ms.bvtCompletion) + '</strong></span>' : '') +
           (ms.execWithBuffer     ? '<span>🏁 Exec w/ buffer: <strong style="color:var(--text);">' + formatDateDisplay(ms.execWithBuffer) + '</strong></span>' : '') +
+          (ms.p1Completion ? '<span>🎯 P1 completion: <strong style="color:var(--text);">' + formatDateDisplay(ms.p1Completion) + '</strong></span>' : '') +
           (ms.mergedBuildGoAhead ? '<span>🚀 Go ahead: <strong style="color:var(--text);">' + formatDateDisplay(ms.mergedBuildGoAhead) + '</strong></span>' : '') +
         '</div>' : '';
 
@@ -6391,7 +6462,7 @@ function shareAllPlansReport() {
       {name:'📋 Test prep',cls:'row-prep',status:plan.testPrepStatus||'Not yet started',effort:plan.testPrepEffort||0,assignee:getFixedAssigneeNames(plan.testPrepAssigneeIds),cases:'—'},
       {name:'🔧 Test env & data prep',cls:'row-prep',status:plan.testEnvStatus||'Not yet started',effort:plan.testEnvEffort||0,assignee:getFixedAssigneeNames(plan.testEnvAssigneeIds),cases:'—'},
       ...plan.rows.map(r=>{return{name:r.name,cls:'row-env',status:r.status||'Not yet started',effort:r.effort||0,assignee:getAssigneeNames(r),cases:r.cases||0};}),
-      {name:'Buffer',cls:'row-buffer',status:'',effort:plan.buffer&&plan.buffer.effort||0,assignee:'—',cases:'—'},
+      {name:'Buffer',cls:'row-buffer',status:'',effort:getBufferTotal(plan),assignee:'—',cases:'—'},
     ];
     const totalEffort=envRows.reduce((s,r)=>s+(parseFloat(r.effort)||0),0);
     const totalCases=plan.rows.reduce((s,r)=>s+(r.cases||0),0);
@@ -6403,12 +6474,13 @@ function shareAllPlansReport() {
       return '<tr class="'+r.cls+'"><td>'+escapeHtml(r.name)+'</td><td class="r">'+r.cases+'</td><td class="r">'+r.effort+'</td><td>'+escapeHtml(r.assignee)+'</td><td>'+statusCell+'</td></tr>';
     }).join('');
 
-    const msHtml=(ms.buildPickup||ms.bvtCompletion||ms.execNoBuffer||ms.execWithBuffer||ms.mergedBuildGoAhead)?
+    const msHtml=(ms.buildPickup||ms.bvtCompletion||ms.p1Completion||ms.execNoBuffer||ms.execWithBuffer||ms.mergedBuildGoAhead)?
       '<div class="section-label">Milestones</div><div class="milestone-wrap"><table class="milestone-table">'+
         (ms.buildPickup?'<tr><td class="ms-icon">📥</td><td class="ms-label">Build pickup</td><td class="ms-value">'+formatDateDisplay(ms.buildPickup)+'</td></tr>':'')+
         (ms.bvtCompletion?'<tr><td class="ms-icon">🔬</td><td class="ms-label">BVT completion</td><td class="ms-value">'+formatDateDisplay(ms.bvtCompletion)+'</td></tr>':'')+
         (ms.execNoBuffer?'<tr><td class="ms-icon">📅</td><td class="ms-label">Exec (without buffer)</td><td class="ms-value">'+formatDateDisplay(ms.execNoBuffer)+'</td></tr>':'')+
         (ms.execWithBuffer?'<tr><td class="ms-icon">🏁</td><td class="ms-label">Exec (with buffer)</td><td class="ms-value">'+formatDateDisplay(ms.execWithBuffer)+'</td></tr>':'')+
+        (ms.p1Completion?'<tr><td class="ms-icon">🎯</td><td class="ms-label">P1 completion</td><td class="ms-value">'+formatDateDisplay(ms.p1Completion)+'</td></tr>':'')+
         (ms.mergedBuildGoAhead?'<tr><td class="ms-icon">🚀</td><td class="ms-label">Merged build go ahead</td><td class="ms-value">'+formatDateDisplay(ms.mergedBuildGoAhead)+'</td></tr>':'')+
       '</table></div>':'';
 
@@ -6510,13 +6582,13 @@ function openAllPlansInTab() {
       {name:'📋 Test prep',cls:'row-prep',status:plan.testPrepStatus||'Not yet started',effort:plan.testPrepEffort||0,assignee:getFixedAssigneeNames(plan.testPrepAssigneeIds),cases:'—'},
       {name:'🔧 Test env & data prep',cls:'row-prep',status:plan.testEnvStatus||'Not yet started',effort:plan.testEnvEffort||0,assignee:getFixedAssigneeNames(plan.testEnvAssigneeIds),cases:'—'},
       ...plan.rows.map(r=>{return{name:r.name,cls:'row-env',status:r.status||'Not yet started',effort:r.effort||0,assignee:getAssigneeNames(r),cases:r.cases||0};}),
-      {name:'Buffer',cls:'row-buffer',status:'',effort:plan.buffer&&plan.buffer.effort||0,assignee:'—',cases:'—'},
+      {name:'Buffer',cls:'row-buffer',status:'',effort:getBufferTotal(plan),assignee:'—',cases:'—'},
     ];
     const totalEffort=envRows.reduce((s,r)=>s+(parseFloat(r.effort)||0),0);
     const totalCases=plan.rows.reduce((s,r)=>s+(r.cases||0),0);
     const ms=plan.milestones||{};
     const rowsHtml=envRows.map(r=>{const [bg,fg]=(ec[r.status]||'#f1f5f9:#64748b').split(':');const statusCell=r.status?'<span style="background:'+bg+';color:'+fg+';padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;">'+escapeHtml(r.status)+'</span>':'—';return '<tr class="'+r.cls+'"><td>'+escapeHtml(r.name)+'</td><td class="r">'+r.cases+'</td><td class="r">'+r.effort+'</td><td>'+escapeHtml(r.assignee)+'</td><td>'+statusCell+'</td></tr>';}).join('');
-    const msHtml=(ms.buildPickup||ms.bvtCompletion||ms.execNoBuffer||ms.execWithBuffer||ms.mergedBuildGoAhead)?'<div class="section-label">Milestones</div><div class="milestone-wrap"><table class="milestone-table">'+(ms.buildPickup?'<tr><td class="ms-icon">📥</td><td class="ms-label">Build pickup</td><td class="ms-value">'+formatDateDisplay(ms.buildPickup)+'</td></tr>':'')+(ms.bvtCompletion?'<tr><td class="ms-icon">🔬</td><td class="ms-label">BVT completion</td><td class="ms-value">'+formatDateDisplay(ms.bvtCompletion)+'</td></tr>':'')+(ms.execNoBuffer?'<tr><td class="ms-icon">📅</td><td class="ms-label">Exec (without buffer)</td><td class="ms-value">'+formatDateDisplay(ms.execNoBuffer)+'</td></tr>':'')+(ms.execWithBuffer?'<tr><td class="ms-icon">🏁</td><td class="ms-label">Exec (with buffer)</td><td class="ms-value">'+formatDateDisplay(ms.execWithBuffer)+'</td></tr>':'')+(ms.mergedBuildGoAhead?'<tr><td class="ms-icon">🚀</td><td class="ms-label">Merged build go ahead</td><td class="ms-value">'+formatDateDisplay(ms.mergedBuildGoAhead)+'</td></tr>':'')+'</table></div>':'';
+    const msHtml=(ms.buildPickup||ms.bvtCompletion||ms.p1Completion||ms.execNoBuffer||ms.execWithBuffer||ms.mergedBuildGoAhead)?'<div class="section-label">Milestones</div><div class="milestone-wrap"><table class="milestone-table">'+(ms.buildPickup?'<tr><td class="ms-icon">📥</td><td class="ms-label">Build pickup</td><td class="ms-value">'+formatDateDisplay(ms.buildPickup)+'</td></tr>':'')+(ms.bvtCompletion?'<tr><td class="ms-icon">🔬</td><td class="ms-label">BVT completion</td><td class="ms-value">'+formatDateDisplay(ms.bvtCompletion)+'</td></tr>':'')+(ms.p1Completion?'<tr><td class="ms-icon">🎯</td><td class="ms-label">P1 completion</td><td class="ms-value">'+formatDateDisplay(ms.p1Completion)+'</td></tr>':'')+(ms.execNoBuffer?'<tr><td class="ms-icon">📅</td><td class="ms-label">Exec (without buffer)</td><td class="ms-value">'+formatDateDisplay(ms.execNoBuffer)+'</td></tr>':'')+(ms.execWithBuffer?'<tr><td class="ms-icon">🏁</td><td class="ms-label">Exec (with buffer)</td><td class="ms-value">'+formatDateDisplay(ms.execWithBuffer)+'</td></tr>':'')+(ms.mergedBuildGoAhead?'<tr><td class="ms-icon">🚀</td><td class="ms-label">Merged build go ahead</td><td class="ms-value">'+formatDateDisplay(ms.mergedBuildGoAhead)+'</td></tr>':'')+'</table></div>':'';
     const metaPills=(proj.buildDate?'<span class="meta-pill"><span class="pill-icon">📥</span> Dev to QA: <strong>'+formatDateDisplay(proj.buildDate)+'</strong></span>':'')+(proj.goAheadDate?'<span class="meta-pill"><span class="pill-icon">🚀</span> Go ahead: <strong>'+formatDateDisplay(proj.goAheadDate)+'</strong></span>':'')+(proj.completionDate?'<span class="meta-pill"><span class="pill-icon">🏁</span> QA done: <strong>'+formatDateDisplay(proj.completionDate)+'</strong></span>':'')+(proj.effort?'<span class="meta-pill"><span class="pill-icon">⏱</span> Effort: <strong>'+proj.effort+' PDs</strong></span>':'');
     return '<div class="project-card"><div class="project-card-header"><div style="flex:1;min-width:0;"><div style="margin-bottom:8px;"><h2 style="margin:0;font-size:17px;">'+escapeHtml(proj.name)+'</h2></div><div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;">'+(proj.jiraUrl?'<a href="'+escapeHtml(proj.jiraUrl)+'" target="_blank" style="background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;">🎫 '+escapeHtml(extractJiraId(proj.jiraUrl)||proj.jiraUrl)+'</a>':'')+(proj.devPod?'<span style="background:'+podC[0]+';color:'+podC[1]+';padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">'+escapeHtml(proj.devPod)+'</span>':'')+'<span style="background:'+sbg+';color:'+sfg+';padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">'+(proj.status||'Not started')+'</span>'+(reviewed?'<span style="background:#dcfce7;color:#15803d;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">✅ Reviewed</span>':'<span style="background:#fef9c3;color:#a16207;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;">⏳ Pending review</span>')+(proj.releaseDate?'<span style="font-size:12px;color:#64748b;">📅 '+formatDateDisplay(proj.releaseDate)+'</span>':'')+'</div></div><div style="min-width:160px;flex-shrink:0;text-align:right;"><div style="font-size:11px;color:#94a3b8;margin-bottom:5px;font-weight:600;">'+done+'/'+total+' done · '+donePct+'%</div><div style="height:8px;background:#f1f5f9;border-radius:99px;overflow:hidden;border:1px solid #e2e8f0;display:flex;"><div style="width:'+donePct+'%;background:linear-gradient(90deg,#10b981,#059669);border-radius:99px;"></div><div style="width:'+inProgPct+'%;background:#fbbf24;border-radius:99px;"></div></div></div></div><div class="project-card-body">'+(metaPills?'<div class="meta-pills">'+metaPills+'</div>':'')+'<div class="section-label">Test matrix</div><div class="matrix-wrap"><table class="matrix-table" style="table-layout:fixed;width:100%;"><thead><tr><th style="width:35%;">Environment</th><th class="r" style="width:13%;">Cases</th><th class="r" style="width:15%;">Effort (PD)</th><th style="width:20%;">Assigned</th><th style="width:17%;">Status</th></tr></thead><tbody>'+rowsHtml+'</tbody><tfoot><tr class="row-total"><td><strong>Total</strong></td><td class="r"><strong>'+totalCases+'</strong></td><td class="r"><strong>'+ceilHalf(totalEffort)+'</strong></td><td colspan="2"></td></tr></tfoot></table></div>'+msHtml+'</div></div>';
   }).join('');
@@ -7940,6 +8012,16 @@ function ceilHalf(n) {
   return Math.ceil(n * 2) / 2;
 }
 
+// Buffer total — supports the new multi-reason rows list, falls back to the
+// old single-number value for plans created before this change.
+function getBufferTotal(plan) {
+  if (!plan || !plan.buffer) return 0;
+  if (Array.isArray(plan.buffer.rows) && plan.buffer.rows.length > 0) {
+    return plan.buffer.rows.reduce((s, r) => s + (parseFloat(r.effort) || 0), 0);
+  }
+  return parseFloat(plan.buffer.effort) || 0;
+}
+
 // ── Launchpad ──────────────────────────────────────────
 const KB_CATEGORY_ICONS = {
   'Testing':    '🧪',
@@ -8517,7 +8599,7 @@ function getTestPlanForProject(projectId) {
       rows: [],
       testPrepEffort: null,
       buffer: { effort: null },
-      milestones: { buildPickup: '', bvtCompletion: '', execNoBuffer: '', execWithBuffer: '', mergedBuildGoAhead: '' }
+      milestones: { buildPickup: '', bvtCompletion: '', p1Completion: '', execNoBuffer: '', execWithBuffer: '', mergedBuildGoAhead: '' }
     };
   }
   const plan = state.testPlans[projectId];
@@ -8526,8 +8608,10 @@ function getTestPlanForProject(projectId) {
   if (plan.testPrepStatus === undefined) plan.testPrepStatus = 'Not yet started';
   if (plan.testEnvEffort === undefined) plan.testEnvEffort = null;
   if (plan.testEnvStatus === undefined) plan.testEnvStatus = 'Not yet started';
-  if (!plan.buffer) plan.buffer = { effort: null };
-  if (!plan.milestones) plan.milestones = { buildPickup: '', bvtCompletion: '', execNoBuffer: '', execWithBuffer: '', mergedBuildGoAhead: '' };
+  if (!plan.buffer) plan.buffer = { effort: null, rows: [] };
+  if (!Array.isArray(plan.buffer.rows)) plan.buffer.rows = [];
+  if (!Array.isArray(plan.dimensionChecklist)) plan.dimensionChecklist = [];
+  if (!plan.milestones) plan.milestones = { buildPickup: '', bvtCompletion: '', p1Completion: '', execNoBuffer: '', execWithBuffer: '', mergedBuildGoAhead: '' };
   if (plan.testEnvData === undefined) plan.testEnvData = '';
   if (plan.milestones.mergedBuildGoAhead === undefined) plan.milestones.mergedBuildGoAhead = '';
   return plan;
@@ -8972,6 +9056,246 @@ function updateFixedRowStatusStyle(id) {
   sel.setAttribute('style', `${style} padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; border:none; cursor:pointer; outline:none; appearance:none; -webkit-appearance:none; text-align:center; width:auto;`);
 }
 
+function toggleBufferPanel() {
+  const panel = document.getElementById('bufferPanel');
+  if (!panel) return;
+  const opening = panel.style.display === 'none';
+  panel.style.display = opening ? 'block' : 'none';
+  if (opening) renderBufferRows();
+}
+
+function renderBufferRows() {
+  const plan = getTestPlanForProject(selectedTestPlanProjectId);
+  const list = document.getElementById('bufferRowsList');
+  if (!plan || !list) return;
+  if (!Array.isArray(plan.buffer.rows)) plan.buffer.rows = [];
+
+  if (plan.buffer.rows.length === 0) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text-faint);font-style:italic;">No buffer reasons added yet.</div>';
+  } else {
+    list.innerHTML = plan.buffer.rows.map(r => `
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input type="text" value="${escapeHtml(r.reason || '')}" placeholder="Reason (e.g. Regression re-test)" oninput="updateBufferRow('${r.id}','reason',this.value)" style="flex:1; font-size:12px; padding:5px 8px;">
+        <input type="number" min="0" step="0.5" value="${r.effort || ''}" placeholder="PD" oninput="updateBufferRow('${r.id}','effort',this.value)" style="width:70px; font-size:12px; padding:5px 8px;">
+        <button type="button" onclick="deleteBufferRow('${r.id}')" title="Remove" style="background:#fee2e2; border:none; border-radius:4px; cursor:pointer; padding:4px 7px; font-size:11px; color:#dc2626;">✕</button>
+      </div>`).join('');
+  }
+  document.getElementById('testBufferEffortDisplay').textContent = getBufferTotal(plan);
+  updateCalculatedCasesPreview();
+}
+
+function addBufferRow() {
+  const plan = getTestPlanForProject(selectedTestPlanProjectId);
+  if (!plan) return;
+  if (!Array.isArray(plan.buffer.rows)) plan.buffer.rows = [];
+  plan.buffer.rows.push({ id: uid(), reason: '', effort: 0 });
+  renderBufferRows();
+}
+
+function updateBufferRow(rowId, field, value) {
+  const plan = getTestPlanForProject(selectedTestPlanProjectId);
+  if (!plan) return;
+  const row = (plan.buffer.rows || []).find(r => r.id === rowId);
+  if (!row) return;
+  row[field] = field === 'effort' ? (parseFloat(value) || 0) : value;
+  document.getElementById('testBufferEffortDisplay').textContent = getBufferTotal(plan);
+  updateCalculatedCasesPreview();
+}
+
+function deleteBufferRow(rowId) {
+  const plan = getTestPlanForProject(selectedTestPlanProjectId);
+  if (!plan) return;
+  plan.buffer.rows = (plan.buffer.rows || []).filter(r => r.id !== rowId);
+  renderBufferRows();
+}
+
+// ── Dimension Checklist ────────────────────────────────
+function toggleDimensionChecklistSummary() {
+  openDimensionChecklistModal();
+}
+
+function renderDimensionChecklistSummary() {
+  const plan = getTestPlanForProject(selectedTestPlanProjectId);
+  const el = document.getElementById('dcSummaryText');
+  if (!plan || !el) return;
+  const rows = plan.dimensionChecklist || [];
+  if (rows.length === 0) {
+    el.textContent = 'No rows yet';
+  } else {
+    const totalCases = rows.reduce((s, r) => s + (parseFloat(r.count) || 0), 0);
+    el.textContent = `${rows.length} scenario${rows.length === 1 ? '' : 's'} · ${totalCases} test case${totalCases === 1 ? '' : 's'}`;
+  }
+}
+
+function openDimensionChecklistModal() {
+  document.getElementById('dimensionChecklistModal').classList.add('show');
+  renderDimensionChecklistTable();
+}
+
+function closeDimensionChecklistModal() {
+  document.getElementById('dimensionChecklistModal').classList.remove('show');
+  renderDimensionChecklistSummary();
+}
+
+function renderDimensionChecklistTable() {
+  const plan = getTestPlanForProject(selectedTestPlanProjectId);
+  const body = document.getElementById('dimensionChecklistBody');
+  if (!plan || !body) return;
+  const rows = plan.dimensionChecklist || [];
+
+  if (rows.length === 0) {
+    body.innerHTML = '<tr><td colspan="6" style="padding:16px; text-align:center; color:var(--text-faint); font-style:italic;">No rows yet — add one or import from Excel.</td></tr>';
+  } else {
+    body.innerHTML = rows.map(r => `
+      <tr>
+        <td style="padding:5px 6px;"><input type="text" value="${escapeHtml(r.scenario||'')}" oninput="updateDimensionRow('${r.id}','scenario',this.value)" style="width:100%; font-size:12px; padding:4px 6px;"></td>
+        <td style="padding:5px 6px;"><input type="text" value="${escapeHtml(r.subScenario||'')}" oninput="updateDimensionRow('${r.id}','subScenario',this.value)" style="width:100%; font-size:12px; padding:4px 6px;"></td>
+        <td style="padding:5px 6px;"><input type="text" value="${escapeHtml(r.testCases||'')}" oninput="updateDimensionRow('${r.id}','testCases',this.value)" style="width:100%; font-size:12px; padding:4px 6px;"></td>
+        <td style="padding:5px 6px;"><input type="number" min="0" value="${r.count||''}" oninput="updateDimensionRow('${r.id}','count',this.value)" style="width:70px; font-size:12px; padding:4px 6px; text-align:right;"></td>
+        <td style="padding:5px 6px;">
+          <select onchange="updateDimensionRow('${r.id}','priority',this.value)" style="font-size:12px; padding:4px 6px;">
+            <option value="P1" ${r.priority==='P1'?'selected':''}>P1</option>
+            <option value="P2" ${r.priority==='P2'?'selected':''}>P2</option>
+            <option value="P3" ${r.priority==='P3'?'selected':''}>P3</option>
+          </select>
+        </td>
+        <td style="padding:5px 6px;"><button type="button" onclick="deleteDimensionRow('${r.id}')" style="background:#fee2e2; border:none; border-radius:4px; cursor:pointer; padding:4px 7px; font-size:11px; color:#dc2626;">✕</button></td>
+      </tr>`).join('');
+  }
+
+  const totalCases = rows.reduce((s, r) => s + (parseFloat(r.count) || 0), 0);
+  document.getElementById('dcModalTotal').textContent = `Total: ${rows.length} scenarios · ${totalCases} test cases`;
+}
+
+function addDimensionRow() {
+  const plan = getTestPlanForProject(selectedTestPlanProjectId);
+  if (!plan) return;
+  if (!Array.isArray(plan.dimensionChecklist)) plan.dimensionChecklist = [];
+  plan.dimensionChecklist.push({ id: uid(), scenario:'', subScenario:'', testCases:'', count:0, priority:'P2' });
+  renderDimensionChecklistTable();
+  saveDimensionChecklist();
+}
+
+function updateDimensionRow(rowId, field, value) {
+  const plan = getTestPlanForProject(selectedTestPlanProjectId);
+  if (!plan) return;
+  const row = (plan.dimensionChecklist || []).find(r => r.id === rowId);
+  if (!row) return;
+  row[field] = field === 'count' ? (parseFloat(value) || 0) : value;
+  document.getElementById('dcModalTotal').textContent = `Total: ${plan.dimensionChecklist.length} scenarios · ${plan.dimensionChecklist.reduce((s,r)=>s+(parseFloat(r.count)||0),0)} test cases`;
+  saveDimensionChecklist();
+}
+
+function deleteDimensionRow(rowId) {
+  const plan = getTestPlanForProject(selectedTestPlanProjectId);
+  if (!plan) return;
+  plan.dimensionChecklist = (plan.dimensionChecklist || []).filter(r => r.id !== rowId);
+  renderDimensionChecklistTable();
+  saveDimensionChecklist();
+}
+
+function importDimensionChecklistExcel(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const plan = getTestPlanForProject(selectedTestPlanProjectId);
+  if (!plan) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'binary' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      if (!Array.isArray(plan.dimensionChecklist)) plan.dimensionChecklist = [];
+      data.forEach(row => {
+        const keys = Object.keys(row);
+        const find = (needle) => { const k = keys.find(k => k.toLowerCase().replace(/[^a-z]/g,'').includes(needle)); return k ? row[k] : ''; };
+        plan.dimensionChecklist.push({
+          id: uid(),
+          scenario: find('scenario') && !find('sub') ? find('scenario') : (row['Scenario'] || ''),
+          subScenario: find('sub') || row['Sub-scenario'] || row['Sub Scenario'] || '',
+          testCases: find('testcase') || row['Test Cases'] || '',
+          count: parseFloat(find('count')) || 0,
+          priority: find('priority') || row['Priority'] || 'P2'
+        });
+      });
+      renderDimensionChecklistTable();
+      saveDimensionChecklist();
+      showToastMsg('✅ Imported ' + data.length + ' rows from Excel');
+    } catch (err) {
+      showToastMsg('❌ Could not read this file — check the format and try again');
+    }
+    event.target.value = '';
+  };
+  reader.readAsBinaryString(file);
+}
+
+function saveDimensionChecklist() {
+  const plan = getTestPlanForProject(selectedTestPlanProjectId);
+  if (!plan || !selectedTestPlanProjectId) return;
+  saveBufferRow(selectedTestPlanProjectId, plan);
+}
+
+// ── Move to Release Vault ───────────────────────────────
+function updateMoveToVaultButton() {
+  const btn  = document.getElementById('moveToVaultBtn');
+  const desc = document.getElementById('moveToVaultDesc');
+  if (!btn || !desc || !selectedTestPlanProjectId) return;
+
+  const plan = state.testPlans && state.testPlans[selectedTestPlanProjectId];
+  const proj = state.projects.find(p => p.id === selectedTestPlanProjectId);
+  if (!plan || !proj) return;
+
+  const reasons = [];
+  const autoStatus = computeAutoStatus(plan);
+  const allDone = autoStatus === 'Completed';
+  if (!allDone) reasons.push('all environments (incl. Test prep & Test env) must be marked Done');
+
+  const reviewed = plan.reviewed === true;
+  if (!reviewed) reasons.push('test plan must be reviewed');
+
+  const hasDraft = !!localStorage.getItem(DRAFT_KEY_PREFIX + selectedTestPlanProjectId);
+  if (hasDraft) reasons.push('publish your local changes first');
+
+  const alreadyVaulted = proj.status === 'Completed';
+
+  if (alreadyVaulted) {
+    btn.disabled = true;
+    btn.style.cursor = 'not-allowed';
+    btn.style.opacity = '0.6';
+    btn.textContent = '✅ Already in vault';
+    desc.textContent = 'This release item is already in the Release Vault.';
+  } else if (reasons.length === 0) {
+    btn.disabled = false;
+    btn.style.cursor = 'pointer';
+    btn.style.opacity = '1';
+    btn.style.background = 'linear-gradient(135deg,#7c3aed,#2563eb)';
+    btn.style.color = 'white';
+    btn.textContent = '🔒 Move to Vault';
+    desc.textContent = 'All conditions met — ready to move to the Release Vault.';
+  } else {
+    btn.disabled = true;
+    btn.style.cursor = 'not-allowed';
+    btn.style.opacity = '0.6';
+    btn.style.background = 'var(--panel-2)';
+    btn.style.color = 'var(--text-faint)';
+    btn.textContent = '🔒 Move to Vault';
+    desc.textContent = 'Not ready — ' + reasons.join(', ') + '.';
+  }
+}
+
+function moveToReleaseVault() {
+  const proj = state.projects.find(p => p.id === selectedTestPlanProjectId);
+  if (!proj) return;
+  if (!confirm('Move "' + proj.name + '" to Release Vault?\n\nStatus will be set to "Completed" for everyone.')) return;
+  snapshotState('Move to vault: ' + proj.name);
+  proj.status = 'Completed';
+  saveRelease(proj);
+  showToastMsg('🔒 Moved to Release Vault');
+  updateMoveToVaultButton();
+  renderProjects();
+}
+
+
 function saveBufferValues() {
   const plan     = getTestPlanForProject(selectedTestPlanProjectId);
   const reviewed = plan.reviewed === true;
@@ -8983,7 +9307,6 @@ function saveBufferValues() {
 
   plan.testPrepEffort       = parseFloat(document.getElementById('testPrepEffort').value) || 0;
   plan.testEnvEffort        = parseFloat(document.getElementById('testEnvEffort').value) || 0;
-  plan.buffer.effort        = parseFloat(document.getElementById('testBufferEffort').value) || 0;
   plan.testPrepAssigneeIds  = getFixedAssigneeIds('testPrep');
   plan.testEnvAssigneeIds   = getFixedAssigneeIds('testEnv');
 
@@ -9033,6 +9356,7 @@ async function saveMilestones() {
   const plan = getTestPlanForProject(selectedTestPlanProjectId);
   plan.milestones.buildPickup        = document.getElementById('msBuildPickup').value;
   plan.milestones.bvtCompletion      = document.getElementById('msBvtCompletion').value;
+  plan.milestones.p1Completion       = document.getElementById('msP1Completion').value;
   plan.milestones.execNoBuffer       = document.getElementById('msExecNoBuffer').value;
   plan.milestones.execWithBuffer     = document.getElementById('msExecWithBuffer').value;
   plan.milestones.mergedBuildGoAhead = document.getElementById('msMergedBuildGoAhead').value;
@@ -9109,7 +9433,10 @@ function renderTestPlan() {
   document.getElementById('testPrepStatus').value    = plan.testPrepStatus || 'Not yet started';
   document.getElementById('testEnvEffort').value     = plan.testEnvEffort  || '';
   document.getElementById('testEnvStatus').value     = plan.testEnvStatus  || 'Not yet started';
-  document.getElementById('testBufferEffort').value  = plan.buffer.effort  || '';
+  document.getElementById('testBufferEffortDisplay').textContent = getBufferTotal(plan);
+  renderBufferRows();
+  renderDimensionChecklistSummary();
+  updateMoveToVaultButton();
 
   // Load fixed row assignees
   buildFixedAssigneeDD('testPrep');
@@ -9144,7 +9471,7 @@ function renderTestPlan() {
 
   const testPrepEffort = plan.testPrepEffort || 0;
   const testEnvEffort = plan.testEnvEffort || 0;
-  const bufferEffort = plan.buffer.effort || 0;
+  const bufferEffort = getBufferTotal(plan);
 
   const totalCases = rowsCases;
   const totalEffort = testPrepEffort + testEnvEffort + rowsEffort + bufferEffort;
@@ -9238,6 +9565,7 @@ function renderTestPlan() {
   }
   document.getElementById('msBuildPickup').value = plan.milestones.buildPickup || '';
   document.getElementById('msBvtCompletion').value = plan.milestones.bvtCompletion || '';
+  document.getElementById('msP1Completion').value = plan.milestones.p1Completion || '';
   document.getElementById('msExecNoBuffer').value = plan.milestones.execNoBuffer || '';
   document.getElementById('msExecWithBuffer').value = plan.milestones.execWithBuffer || '';
   document.getElementById('msMergedBuildGoAhead').value = plan.milestones.mergedBuildGoAhead || '';
@@ -9254,7 +9582,7 @@ function computeTestPlanMetrics(plan) {
   const rowsEffort = plan.rows.reduce((s, r) => s + (r.effort || 0), 0);
   const testPrepEffort = plan.testPrepEffort || 0;
   const testEnvEffort = plan.testEnvEffort || 0;
-  const bufferEffort = plan.buffer.effort || 0;
+  const bufferEffort = getBufferTotal(plan);
   const totalEffort = ceilHalf(testPrepEffort + testEnvEffort + rowsEffort + bufferEffort);
   const requiredPDs = ceilHalf(testPrepEffort + testEnvEffort + rowsEffort);
   const assignedPeopleIds = new Set(plan.rows.map(r => r.assigneeId).filter(Boolean));
@@ -9615,6 +9943,7 @@ function buildTestPlanProjectSectionHtml(proj) {
             <tbody>
               ${msRow('📦', 'Build pickup', plan.milestones.buildPickup)}
               ${msRow('🧪', 'BVT completion', plan.milestones.bvtCompletion)}
+              ${msRow('🎯', 'P1 completion', plan.milestones.p1Completion)}
               ${msRow('📊', 'Execution completion without buffer', plan.milestones.execNoBuffer)}
               ${msRow('✅', 'Execution completion with buffer', plan.milestones.execWithBuffer)}
               ${msRow('🚀', 'Merged build go ahead', plan.milestones.mergedBuildGoAhead)}
@@ -11591,7 +11920,7 @@ function renderArchive() {
     const donePct = total > 0 ? Math.round(done/total*100) : 0;
 
     // Env rows — including Buffer
-    const bufferEffort = (plan.buffer && plan.buffer.effort) || 0;
+    const bufferEffort = getBufferTotal(plan);
     const envRows = [
       {name:'📋 Test prep',            status:plan.testPrepStatus||'Not yet started', effort:plan.testPrepEffort||0, assignee:getFixedAssigneeNames(plan.testPrepAssigneeIds), cases:'—'},
       {name:'🔧 Test env & data prep', status:plan.testEnvStatus||'Not yet started',  effort:plan.testEnvEffort||0,  assignee:getFixedAssigneeNames(plan.testEnvAssigneeIds), cases:'—'},
@@ -11631,7 +11960,7 @@ function renderArchive() {
       : '<tr><td colspan="5" style="text-align:center;color:var(--text-faint);padding:14px;font-style:italic;font-size:12.5px;">No environments in test plan</td></tr>';
 
     const ms = plan.milestones || {};
-    const msHtml = (ms.buildPickup||ms.bvtCompletion||ms.execWithBuffer||ms.mergedBuildGoAhead)
+    const msHtml = (ms.buildPickup||ms.bvtCompletion||ms.p1Completion||ms.execWithBuffer||ms.mergedBuildGoAhead)
       ? '<div style="padding:10px 16px;border-top:1px solid var(--border-soft);display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-faint);">' +
           (ms.buildPickup    ?'<span>📥 Build pickup: <strong style="color:var(--text);">'+formatDateDisplay(ms.buildPickup)+'</strong></span>':'') +
           (ms.bvtCompletion  ?'<span>🔬 BVT: <strong style="color:var(--text);">'+formatDateDisplay(ms.bvtCompletion)+'</strong></span>':'') +
@@ -11825,7 +12154,7 @@ function buildArchiveReportHtml(title, items, notesMap = {}) {
       {name:'🔧 Test env & data prep', status:plan.testEnvStatus||'Not yet started', effort:plan.testEnvEffort||0, assignee:getFixedAssigneeNames(plan.testEnvAssigneeIds),cases:'—'},
       ...plan.rows.map(r=>{return{name:r.name,status:r.status||'Not yet started',effort:r.effort||0,assignee:getAssigneeNames(r),cases:r.cases||0};}),
     ];
-    const bufferEff  = (plan.buffer && plan.buffer.effort) || 0;
+    const bufferEff  = getBufferTotal(plan);
     const totalEffort = ceilHalf(envRows.reduce((s,r)=>s+(parseFloat(r.effort)||0),0) + (parseFloat(bufferEff)||0));
     const totalCases  = plan.rows.reduce((s,r)=>s+(r.cases||0),0);
     const ms = plan.milestones||{};
