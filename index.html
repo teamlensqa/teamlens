@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5446,10 +5445,6 @@ function renderDashboard() {
 }
 
 function dismissAlert(rowId) {
-  // Remove only this specific row
-  const row = document.getElementById(rowId);
-  if (row) row.remove();
-
   // Persist so it doesn't come back on re-render
   if (!state.dismissedAlerts) state.dismissedAlerts = [];
   if (!state.dismissedAlerts.includes(rowId)) {
@@ -5457,15 +5452,18 @@ function dismissAlert(rowId) {
     saveState();
   }
 
-  // Update count badge — count remaining visible rows
-  const container = document.getElementById('alertsRows');
-  const countEl   = document.getElementById('alertsCount');
-  const panel     = document.getElementById('alertsPanel');
-  if (!container) return;
-
-  const remaining = container.querySelectorAll('div[id^="alert-row-"]').length;
-  if (countEl) countEl.textContent = remaining;
-  if (panel && remaining === 0) panel.style.display = 'none';
+  // Re-render the whole alerts panel (not just remove one row) — this way,
+  // if there were more than 8 alerts, the next hidden one now surfaces,
+  // and the count badge always matches exactly what's shown below it.
+  const panel = document.getElementById('alertsPanel');
+  if (panel) {
+    const freshHtml = renderAlertsHtml();
+    if (freshHtml) {
+      panel.outerHTML = freshHtml;
+    } else {
+      panel.remove();
+    }
+  }
 }
 
 function renderAlertsHtml() {
@@ -5538,11 +5536,19 @@ function renderAlertsHtml() {
 
   const dismissed = state.dismissedAlerts || [];
 
-  const rows = alerts.slice(0, 8).map((a) => {
-    // Unique stable ID based on alert content
+  // Filter out already-dismissed alerts FIRST, then take top 8 for display.
+  // (Previously we sliced to 8 before filtering, so alerts beyond index 7
+  // could never surface — the badge count kept counting them, but the user
+  // had no way to see or dismiss them, making the count look "stuck".)
+  const visibleAlerts = alerts.filter((a) => {
     const rowId = 'alert-row-' + (a.title + a.detail).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40);
-    // Skip if already dismissed
-    if (dismissed.includes(rowId)) return '';
+    return !dismissed.includes(rowId);
+  });
+
+  if (visibleAlerts.length === 0) return '';
+
+  const rows = visibleAlerts.slice(0, 8).map((a) => {
+    const rowId = 'alert-row-' + (a.title + a.detail).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40);
     const bgMap = { red: '#fee2e2', amber: '#fef9c3' };
     const fgMap = { red: '#dc2626', amber: '#a16207' };
     const bdMap = { red: '#fca5a5', amber: '#fde047' };
@@ -5558,12 +5564,9 @@ function renderAlertsHtml() {
       '<button onclick="switchTabTo(\'' + a.action + '\')" style="background:' + fg + ';color:white;border:none;border-radius:7px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0;">→</button>' +
       '<button onclick="dismissAlert(\'' + rowId + '\')" title="Dismiss" style="background:transparent;border:none;color:' + fg + ';opacity:0.5;font-size:14px;cursor:pointer;padding:0 2px;flex-shrink:0;line-height:1;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">✕</button>' +
     '</div>';
-  }).filter(Boolean).join('');
+  }).join('');
 
-  const visibleCount = alerts.filter(a => {
-    const rowId = 'alert-row-' + (a.title + a.detail).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40);
-    return !dismissed.includes(rowId);
-  }).length;
+  const visibleCount = visibleAlerts.length;
 
   if (visibleCount === 0) return '';
 
