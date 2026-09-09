@@ -7963,8 +7963,13 @@ function syncTestPlanToProjects() {
     const hasRows = plan.rows && plan.rows.length > 0;
     if (reviewed && hasRows) {
       const autoStatus = computeAutoStatus(plan);
-      if (autoStatus && proj.status !== autoStatus) {
-        proj.status = autoStatus;
+      // Auto-sync never moves an item to "Completed" on its own anymore —
+      // that now requires the manual "Move to Release Vault" button.
+      // Once an item IS in the vault (Completed), leave it alone here;
+      // only revertFromVault() or moveToReleaseVault() should change it.
+      const cappedStatus = autoStatus === 'Completed' ? 'In progress' : autoStatus;
+      if (proj.status !== 'Completed' && cappedStatus && proj.status !== cappedStatus) {
+        proj.status = cappedStatus;
         changed = true;
       }
     } else if (!reviewed) {
