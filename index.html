@@ -176,6 +176,7 @@
   [data-tab="leave"] .nav-ico     { background: rgba(245,158,11,0.2); color: #fbbf24; }
   [data-tab="holidays"] .nav-ico  { background: rgba(236,72,153,0.2); color: #f472b6; }
   [data-tab="dailyplan"] .nav-ico { background: rgba(99,102,241,0.2); color: #818cf8; }
+  [data-tab="buildreport"] .nav-ico { background: rgba(20,184,166,0.2); color: #2dd4bf; }
   [data-tab="admin"] .nav-ico     { background: rgba(239,68,68,0.2);  color: #f87171; }
   [data-tab="summary"] .nav-ico   { background: rgba(52,211,153,0.2); color: #6ee7b7; }
   [data-tab="archive"] .nav-ico   { background: linear-gradient(135deg,rgba(251,191,36,0.3),rgba(245,158,11,0.2)); color: #fbbf24; }
@@ -992,6 +993,11 @@
         Daily plan
       </button>
 
+      <button class="tab-btn" data-tab="buildreport" data-title="Engg build report" data-desc="Component-wise build history — planned, unplanned, BVT failures and tagged release items">
+        <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5a2 2 0 0 1 2-2h8l6 6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v6h6"/><path d="M9 13h6M9 17h6"/></svg></span>
+        Engg build report
+      </button>
+
 
       <div class="nav-section-label" id="navLabelInfrastructure">Infrastructure</div>
       <button class="tab-btn" data-tab="vmrepo" data-title="Infra Hub" data-desc="Track VM allocations, usage, and availability across all QA team members">
@@ -1402,6 +1408,111 @@
         50% { opacity:0.5; transform:scale(0.8); }
       }
     </style>
+  </div>
+
+  <!-- ENGG BUILD REPORT TAB -->
+  <div class="tab-content" id="tab-buildreport" style="display:none;">
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h3>🧩 Engg build report</h3>
+          <div class="desc">Component-wise build history — planned, unplanned, BVT failures and tagged release items</div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="ghost" onclick="openEngBuildReportInTab()">📊 View report</button>
+          <button class="action" onclick="openEngBuildModal()">+ Add build entry</button>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+        <select id="ebrComponentFilter" onchange="renderEngBuildReport()" style="font-size:12px; padding:6px 10px;">
+          <option value="">All components</option>
+        </select>
+        <div id="ebrPeriodPills" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+      </div>
+
+      <div class="grid-4" id="ebrSummaryCards" style="margin-bottom:16px;"></div>
+
+      <div id="ebrList" style="display:flex; flex-direction:column; gap:8px;"></div>
+      <div class="empty-state" id="ebrEmpty" style="display:none;">No build entries yet — add one to get started.</div>
+    </div>
+  </div>
+
+  <!-- Engg Build Entry Modal -->
+  <div class="modal-overlay" id="engBuildModal">
+    <div class="modal" style="width:92vw; max-width:640px;">
+      <h3 id="engBuildModalTitle">Add build entry</h3>
+      <input type="hidden" id="engBuildEditId" value="">
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+        <div class="field">
+          <label>Component</label>
+          <select id="ebComponent" onchange="updateEngBuildSuggestions()"></select>
+        </div>
+        <div class="field">
+          <label>GA date</label>
+          <input type="date" id="ebGaDate" onchange="updateEngBuildSuggestions()">
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+        <div class="field">
+          <label>Version</label>
+          <input type="text" id="ebVersion" placeholder="3.23.7.0">
+        </div>
+        <div class="field">
+          <label>Dev release owner(s)</label>
+          <input type="text" id="ebOwner" placeholder="Aditya/Rohit">
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:10px;">
+        <div class="field">
+          <label>Planned builds</label>
+          <input type="number" min="0" id="ebPlanned" value="0">
+        </div>
+        <div class="field">
+          <label>Unplanned builds</label>
+          <input type="number" min="0" id="ebUnplanned" value="0">
+        </div>
+        <div class="field">
+          <label>BVT failed</label>
+          <input type="number" min="0" id="ebBvt" value="0">
+        </div>
+      </div>
+
+      <div class="field" style="margin-bottom:10px;">
+        <label>Issue identified by</label>
+        <select id="ebIssueBy">
+          <option value="">—</option>
+          <option value="QA">QA</option>
+          <option value="Dev">Dev</option>
+          <option value="Customer">Customer</option>
+        </select>
+      </div>
+
+      <div id="ebSuggestionsBox" style="display:none; background:var(--panel-2); border-radius:10px; padding:10px 12px; margin-bottom:12px;">
+        <div style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-bottom:8px;">✨ Release items for this component + date</div>
+        <div id="ebSuggestionsList" style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;"></div>
+        <select id="ebManualTagSelect" onchange="addManualEngBuildTag(this.value); this.value='';" style="font-size:12px; padding:5px 8px;">
+          <option value="">+ Tag another release item…</option>
+        </select>
+      </div>
+
+      <div class="field" style="margin-bottom:10px;">
+        <label>Reason for unplanned / BVT failure</label>
+        <textarea id="ebReason" rows="2" style="font-family:inherit;"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Any other comments</label>
+        <textarea id="ebComments" rows="2" style="font-family:inherit;"></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="ghost" onclick="closeEngBuildModal()">Cancel</button>
+        <button onclick="saveEngBuildEntry()" style="background:linear-gradient(135deg,#7c3aed,#2563eb); color:white; border:none; border-radius:8px; padding:8px 16px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit;">Save build entry</button>
+      </div>
+    </div>
   </div>
 
   <!-- CAPACITY TAB -->
@@ -3667,7 +3778,7 @@ function applyAccessUI() {
 
   if (isAdmin) return;
 
-  const SECTION_TABS = ['people','projects','testplan','dailyplan','leave','holidays','summary','vmrepo','archive'];
+  const SECTION_TABS = ['people','projects','testplan','dailyplan','buildreport','leave','holidays','summary','vmrepo','archive'];
   SECTION_TABS.forEach(section => {
     const perm = currentUserPermissions[section] || 'read';
     const tabBtn = document.querySelector(`.tab-btn[data-tab="${section}"]`);
@@ -3697,7 +3808,7 @@ function applyAccessUI() {
   const el = id => document.getElementById(id);
   if (el('navLabelSetup'))          el('navLabelSetup').style.display          = getDisp('people','projects','testplan');
   if (el('navLabelAvailability'))   el('navLabelAvailability').style.display   = getDisp('leave','holidays');
-  if (el('navLabelPlanning'))       el('navLabelPlanning').style.display       = getDisp('dailyplan');
+  if (el('navLabelPlanning'))       el('navLabelPlanning').style.display       = getDisp('dailyplan','buildreport');
   if (el('navLabelInfrastructure')) el('navLabelInfrastructure').style.display = getDisp('vmrepo');
   if (el('navLabelOverview'))       el('navLabelOverview').style.display       = getDisp('summary','archive');
 
@@ -3730,9 +3841,20 @@ function initPermissionRealtime(userRowId) {
       if (newPerms) currentUserPermissions = newPerms;
       if (newRole)  currentUserRole = newRole;
       applyAccessUI();
-      markAllDirty();
-      renderAll();
-      showToastMsg('🔄 Your permissions were updated by admin');
+      // Avoid a disruptive full re-fetch/rebuild while the admin is actively
+      // working in the Admin Panel — that panel already updated its own
+      // in-memory copy when the edit was made, so a background sync here
+      // (without tearing down the DOM mid-click) is enough. Elsewhere in
+      // the app, a full refresh is still useful so the person immediately
+      // sees their new access.
+      if (_activeTab === 'admin') {
+        markAllDirty();
+        _dirtyTabs.delete('admin');
+      } else {
+        markAllDirty();
+        renderAll();
+        showToastMsg('🔄 Your permissions were updated by admin');
+      }
     })
     .subscribe();
 }
@@ -4726,6 +4848,7 @@ async function loadState() {
       state.notifications           = [];
       state.dismissedAlerts         = Array.isArray(parsed.dismissedAlerts)         ? parsed.dismissedAlerts         : [];
       state.mergedBuildDates        = Array.isArray(parsed.mergedBuildDates)        ? parsed.mergedBuildDates        : [];
+      state.engineeringBuilds       = Array.isArray(parsed.engineeringBuilds)       ? parsed.engineeringBuilds       : [];
 
       // Load from field tables — will override resource_planner data if rows exist
       await Promise.all([
@@ -4995,6 +5118,7 @@ const SECTIONS_LIST = [
   { key: 'projects',  label: 'Release' },
   { key: 'testplan',  label: 'Test plan' },
   { key: 'dailyplan', label: 'Daily plan' },
+  { key: 'buildreport', label: 'Engg build report' },
   { key: 'leave',     label: 'Leave calendar' },
   { key: 'holidays',  label: 'Holidays' },
   { key: 'summary',   label: 'Summary' },
@@ -7598,6 +7722,7 @@ function renderTab(tab) {
     case 'archive':    renderArchive(); break;
     case 'leave':      renderLeaveCalendar(); break;
     case 'dailyplan':  renderDailyPlan(); break;
+    case 'buildreport': renderEngBuildReport(); break;
     case 'holidays':   renderHolidays(); break;
     case 'testplan':   renderTestPlan(); break;
     case 'dashboard':  renderDashboard(); break;
@@ -13627,8 +13752,11 @@ function renderReleaseExecTracker() {
     const canEditDP = canEdit('dailyplan');
     const reasonCell = diff < 0
       ? (canEditDP
-          ? `<input type="text" value="${escapeHtml(p.delayReason || '')}" placeholder="Add reason" onchange="saveDelayReason('${p.id}',this.value)" style="width:100%;font-size:12px;padding:4px 8px;">`
-          : `<span style="font-size:12px;color:var(--text-dim);">${escapeHtml(p.delayReason || '—')}</span>`)
+          ? `<textarea rows="2" placeholder="Add reason" onchange="saveDelayReason('${p.id}',this.value)"
+               onfocus="this.style.background='var(--panel)';this.style.border='1px solid var(--border-strong)';"
+               onblur="this.style.background='transparent';this.style.border='1px solid transparent';"
+               style="width:100%;font-size:12px;padding:6px 8px;font-family:inherit;resize:vertical;min-height:36px;white-space:pre-wrap;border:1px solid transparent;border-radius:6px;background:transparent;">${escapeHtml(p.delayReason || '')}</textarea>`
+          : `<span style="font-size:12px;color:var(--text-dim);white-space:pre-wrap;">${escapeHtml(p.delayReason || '—')}</span>`)
       : '<span style="color:var(--text-faint);">—</span>';
     return `<tr>
       <td style="padding:8px 10px;font-weight:600;">${escapeHtml(p.name)}</td>
@@ -13757,6 +13885,374 @@ function deleteMergedBuildDateRow(rowId) {
   state.mergedBuildDates = state.mergedBuildDates.filter(r => r.id !== rowId);
   saveState();
   renderMergedBuildDates();
+}
+
+// ====================== ENGG BUILD REPORT ======================
+let ebrPeriod = 'all';
+
+function getEngBuildPeriodRange() {
+  const today = new Date();
+  let start = null, end = null;
+  if (ebrPeriod === 'quarter') {
+    const q = Math.floor(today.getMonth() / 3);
+    start = new Date(today.getFullYear(), q * 3, 1);
+    end = new Date(today.getFullYear(), q * 3 + 3, 0);
+  } else if (ebrPeriod === '6months') {
+    start = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+    end = today;
+  } else if (ebrPeriod === 'fy') {
+    const fyStartYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+    start = new Date(fyStartYear, 3, 1);
+    end = new Date(fyStartYear + 1, 2, 31);
+  }
+  return { start, end };
+}
+
+function setEngBuildPeriod(period) {
+  ebrPeriod = period;
+  renderEngBuildReport();
+}
+
+function getEngBuildComponents() {
+  const fromProjects = state.projects.map(p => p.component).filter(Boolean);
+  const fromBuilds = (state.engineeringBuilds || []).map(b => b.component).filter(Boolean);
+  return [...new Set([...fromProjects, ...fromBuilds])].sort();
+}
+
+function populateEngBuildFilters() {
+  const filterSel = document.getElementById('ebrComponentFilter');
+  const pillsEl = document.getElementById('ebrPeriodPills');
+  if (!filterSel || !pillsEl) return;
+  const components = getEngBuildComponents();
+  const curVal = filterSel.value;
+  filterSel.innerHTML = '<option value="">All components</option>' +
+    components.map(c => `<option value="${escapeHtml(c)}" ${curVal===c?'selected':''}>${escapeHtml(c)}</option>`).join('');
+
+  const periods = [['all','All time'],['quarter','This quarter'],['6months','Last 6 months'],['fy','This FY']];
+  pillsEl.innerHTML = periods.map(([key,label]) =>
+    `<button onclick="setEngBuildPeriod('${key}')" style="font-size:11.5px; padding:5px 12px; border-radius:20px; border:1px solid ${ebrPeriod===key?'transparent':'var(--border)'}; background:${ebrPeriod===key?'linear-gradient(135deg,#7c3aed,#2563eb)':'transparent'}; color:${ebrPeriod===key?'white':'var(--text-dim)'}; cursor:pointer; font-weight:600;">${label}</button>`
+  ).join('');
+}
+
+function renderEngBuildReport() {
+  if (!state.engineeringBuilds) state.engineeringBuilds = [];
+  populateEngBuildFilters();
+  const list = document.getElementById('ebrList');
+  const empty = document.getElementById('ebrEmpty');
+  const summaryEl = document.getElementById('ebrSummaryCards');
+  if (!list) return;
+
+  const compFilter = document.getElementById('ebrComponentFilter')?.value || '';
+  const { start, end } = getEngBuildPeriodRange();
+
+  let builds = state.engineeringBuilds;
+  if (compFilter) builds = builds.filter(b => b.component === compFilter);
+  if (start && end) {
+    builds = builds.filter(b => {
+      if (!b.gaDate) return false;
+      const d = new Date(b.gaDate + 'T00:00:00');
+      return d >= start && d <= end;
+    });
+  }
+
+  const grandTotal = builds.reduce((s,b) => s + (parseInt(b.plannedBuilds)||0) + (parseInt(b.unplannedBuilds)||0), 0);
+  const grandPlanned = builds.reduce((s,b) => s + (parseInt(b.plannedBuilds)||0), 0);
+  const grandUnplanned = builds.reduce((s,b) => s + (parseInt(b.unplannedBuilds)||0), 0);
+  const grandBvt = builds.reduce((s,b) => s + (parseInt(b.bvtFailed)||0), 0);
+  if (summaryEl) {
+    summaryEl.innerHTML =
+      '<div class="stat-card"><div class="label">Total builds</div><div class="value">' + grandTotal + '</div></div>' +
+      '<div class="stat-card"><div class="label">Planned</div><div class="value">' + grandPlanned + '</div></div>' +
+      '<div class="stat-card"><div class="label">Unplanned</div><div class="value">' + grandUnplanned + '</div></div>' +
+      '<div class="stat-card"><div class="label">BVT failed</div><div class="value" style="color:#dc2626;">' + grandBvt + '</div></div>';
+  }
+
+  if (builds.length === 0) {
+    list.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  const groups = {};
+  builds.forEach(b => { const k = b.component || 'Unassigned'; (groups[k] = groups[k] || []).push(b); });
+  const compNames = Object.keys(groups).sort();
+  const canEditBR = canEdit('buildreport');
+
+  list.innerHTML = compNames.map(comp => {
+    const entries = groups[comp].slice().sort((a,b) => (a.gaDate||'').localeCompare(b.gaDate||''));
+    const total = entries.reduce((s,e) => s + (parseInt(e.plannedBuilds)||0) + (parseInt(e.unplannedBuilds)||0), 0);
+    const planned = entries.reduce((s,e) => s + (parseInt(e.plannedBuilds)||0), 0);
+    const unplanned = entries.reduce((s,e) => s + (parseInt(e.unplannedBuilds)||0), 0);
+    const bvt = entries.reduce((s,e) => s + (parseInt(e.bvtFailed)||0), 0);
+    const accId = 'ebr-' + comp.replace(/[^a-zA-Z0-9]/g,'_');
+
+    const rowsHtml = entries.map(e => {
+      const tags = (e.taggedItemIds || []).map(id => {
+        const p = state.projects.find(pp => pp.id === id);
+        return p ? '<span style="font-size:11px;background:#f3e8ff;color:#7e22ce;padding:2px 9px;border-radius:20px;font-weight:600;white-space:nowrap;display:inline-block;margin:1px;">' + escapeHtml(p.name) + '</span>' : '';
+      }).join('');
+      const editBtns = canEditBR
+        ? '<button onclick="editEngBuildEntry(\'' + e.id + '\')" title="Edit" style="background:none;border:none;cursor:pointer;color:var(--text-faint);padding:2px 4px;">✎</button>' +
+          '<button onclick="deleteEngBuildEntry(\'' + e.id + '\')" title="Delete" style="background:none;border:none;cursor:pointer;color:#dc2626;padding:2px 4px;">✕</button>'
+        : '';
+      const bvtVal = parseInt(e.bvtFailed) || 0;
+      return '<tr style="border-top:1px solid var(--border-soft);">' +
+        '<td style="padding:8px 6px;font-size:12px;white-space:nowrap;">' + (e.gaDate ? formatDateDisplay(e.gaDate) : '—') + '</td>' +
+        '<td style="padding:8px 6px;font-size:12px;">' + escapeHtml(e.version||'—') + '</td>' +
+        '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + (e.plannedBuilds||0) + '</td>' +
+        '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + (e.unplannedBuilds||0) + '</td>' +
+        '<td style="padding:8px 6px;font-size:12px;text-align:right;' + (bvtVal>0?'color:#dc2626;font-weight:700;':'') + '">' + bvtVal + '</td>' +
+        '<td style="padding:8px 6px;">' + (tags || '<span style="color:var(--text-faint);">—</span>') + '</td>' +
+        '<td style="padding:8px 6px;text-align:right;white-space:nowrap;">' + editBtns + '</td>' +
+      '</tr>';
+    }).join('');
+
+    return '<div class="panel" style="margin-bottom:0;padding:0;overflow:hidden;">' +
+      '<div onclick="toggleAccPanel(\'' + accId + '\')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;">' +
+        '<div style="flex:1;min-width:0;font-size:14px;font-weight:700;">' + escapeHtml(comp) + '</div>' +
+        '<div style="display:flex;gap:14px;font-size:12px;color:var(--text-faint);flex-shrink:0;flex-wrap:wrap;">' +
+          '<span>total <strong style="color:var(--text);">' + total + '</strong></span>' +
+          '<span>planned <strong style="color:var(--text);">' + planned + '</strong></span>' +
+          '<span>unplanned <strong style="color:var(--text);">' + unplanned + '</strong></span>' +
+          '<span>bvt failed <strong style="color:' + (bvt>0?'#dc2626':'var(--text)') + ';">' + bvt + '</strong></span>' +
+        '</div>' +
+        '<span id="' + accId + '-ch" style="font-size:11px;color:var(--text-faint);">▼</span>' +
+      '</div>' +
+      '<div id="' + accId + '" style="display:none;padding:0 16px 14px;overflow-x:auto;">' +
+        '<table style="width:100%;min-width:640px;border-collapse:collapse;">' +
+          '<thead><tr>' +
+            '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">GA date</th>' +
+            '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Version</th>' +
+            '<th style="text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Planned</th>' +
+            '<th style="text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Unplanned</th>' +
+            '<th style="text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">BVT failed</th>' +
+            '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Tagged release items</th>' +
+            '<th></th>' +
+          '</tr></thead>' +
+          '<tbody>' + rowsHtml + '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+let ebSelectedTags = [];
+
+function openEngBuildModal(editId) {
+  document.getElementById('engBuildModalTitle').textContent = editId ? 'Edit build entry' : 'Add build entry';
+  document.getElementById('engBuildEditId').value = editId || '';
+
+  const compSel = document.getElementById('ebComponent');
+  compSel.innerHTML = getEngBuildComponents().map(c => '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>').join('');
+
+  if (editId) {
+    const e = (state.engineeringBuilds || []).find(x => x.id === editId);
+    if (e) {
+      compSel.value = e.component || '';
+      document.getElementById('ebGaDate').value = e.gaDate || '';
+      document.getElementById('ebVersion').value = e.version || '';
+      document.getElementById('ebOwner').value = e.owner || '';
+      document.getElementById('ebPlanned').value = e.plannedBuilds || 0;
+      document.getElementById('ebUnplanned').value = e.unplannedBuilds || 0;
+      document.getElementById('ebBvt').value = e.bvtFailed || 0;
+      document.getElementById('ebIssueBy').value = e.issueBy || '';
+      document.getElementById('ebReason').value = e.reason || '';
+      document.getElementById('ebComments').value = e.comments || '';
+      ebSelectedTags = (e.taggedItemIds || []).slice();
+    }
+  } else {
+    document.getElementById('ebGaDate').value = '';
+    document.getElementById('ebVersion').value = '';
+    document.getElementById('ebOwner').value = '';
+    document.getElementById('ebPlanned').value = 0;
+    document.getElementById('ebUnplanned').value = 0;
+    document.getElementById('ebBvt').value = 0;
+    document.getElementById('ebIssueBy').value = '';
+    document.getElementById('ebReason').value = '';
+    document.getElementById('ebComments').value = '';
+    ebSelectedTags = [];
+  }
+
+  const modalEl = document.getElementById('engBuildModal');
+  if (modalEl && modalEl.parentElement !== document.body) document.body.appendChild(modalEl);
+  modalEl.classList.add('show');
+  updateEngBuildSuggestions();
+}
+
+function closeEngBuildModal() {
+  document.getElementById('engBuildModal').classList.remove('show');
+}
+
+function editEngBuildEntry(id) {
+  openEngBuildModal(id);
+}
+
+function updateEngBuildSuggestions() {
+  const component = document.getElementById('ebComponent').value;
+  const gaDate = document.getElementById('ebGaDate').value;
+  const box = document.getElementById('ebSuggestionsBox');
+  const listEl = document.getElementById('ebSuggestionsList');
+  const manualSel = document.getElementById('ebManualTagSelect');
+  if (!box || !listEl) return;
+
+  if (component && gaDate) {
+    const matched = state.projects.filter(p => p.component === component && p.releaseDate === gaDate);
+    matched.forEach(p => { if (!ebSelectedTags.includes(p.id)) ebSelectedTags.push(p.id); });
+    box.style.display = 'block';
+  } else {
+    box.style.display = ebSelectedTags.length > 0 ? 'block' : 'none';
+  }
+
+  listEl.innerHTML = ebSelectedTags.map(id => {
+    const p = state.projects.find(pp => pp.id === id);
+    if (!p) return '';
+    return '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;">' +
+      '<input type="checkbox" checked onchange="removeEngBuildTag(\'' + id + '\')">' + escapeHtml(p.name) +
+    '</label>';
+  }).join('') || '<div style="font-size:12px;color:var(--text-faint);font-style:italic;">No matching release items found — you can tag manually below.</div>';
+
+  if (manualSel) {
+    const untagged = state.projects.filter(p => !ebSelectedTags.includes(p.id));
+    manualSel.innerHTML = '<option value="">+ Tag another release item…</option>' +
+      untagged.map(p => '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>').join('');
+  }
+}
+
+function addManualEngBuildTag(projId) {
+  if (!projId) return;
+  if (!ebSelectedTags.includes(projId)) ebSelectedTags.push(projId);
+  updateEngBuildSuggestions();
+}
+
+function removeEngBuildTag(projId) {
+  ebSelectedTags = ebSelectedTags.filter(id => id !== projId);
+  updateEngBuildSuggestions();
+}
+
+function saveEngBuildEntry() {
+  const editId = document.getElementById('engBuildEditId').value;
+  const component = document.getElementById('ebComponent').value;
+  if (!component) { showToastMsg('❌ Select a component first'); return; }
+
+  const entry = {
+    id: editId || uid(),
+    component,
+    gaDate: document.getElementById('ebGaDate').value,
+    version: document.getElementById('ebVersion').value.trim(),
+    owner: document.getElementById('ebOwner').value.trim(),
+    plannedBuilds: parseInt(document.getElementById('ebPlanned').value) || 0,
+    unplannedBuilds: parseInt(document.getElementById('ebUnplanned').value) || 0,
+    bvtFailed: parseInt(document.getElementById('ebBvt').value) || 0,
+    issueBy: document.getElementById('ebIssueBy').value,
+    reason: document.getElementById('ebReason').value.trim(),
+    comments: document.getElementById('ebComments').value.trim(),
+    taggedItemIds: ebSelectedTags.slice(),
+  };
+
+  if (!state.engineeringBuilds) state.engineeringBuilds = [];
+  if (editId) {
+    const idx = state.engineeringBuilds.findIndex(e => e.id === editId);
+    if (idx >= 0) state.engineeringBuilds[idx] = entry;
+  } else {
+    state.engineeringBuilds.push(entry);
+  }
+  saveState();
+  closeEngBuildModal();
+  renderEngBuildReport();
+  showToastMsg('✅ Build entry saved');
+}
+
+function deleteEngBuildEntry(id) {
+  if (!confirm('Delete this build entry?')) return;
+  state.engineeringBuilds = (state.engineeringBuilds || []).filter(e => e.id !== id);
+  saveState();
+  renderEngBuildReport();
+  showToastMsg('🗑️ Build entry deleted');
+}
+
+function openEngBuildReportInTab() {
+  const compFilter = document.getElementById('ebrComponentFilter')?.value || '';
+  const { start, end } = getEngBuildPeriodRange();
+  const periodLabels = { all: 'All time', quarter: 'This quarter', '6months': 'Last 6 months', fy: 'This FY' };
+
+  let builds = state.engineeringBuilds || [];
+  if (compFilter) builds = builds.filter(b => b.component === compFilter);
+  if (start && end) {
+    builds = builds.filter(b => {
+      if (!b.gaDate) return false;
+      const d = new Date(b.gaDate + 'T00:00:00');
+      return d >= start && d <= end;
+    });
+  }
+  if (builds.length === 0) { showToastMsg('No build entries to export for this filter'); return; }
+
+  let title = 'Engg Build Report — ' + periodLabels[ebrPeriod];
+  if (compFilter) title += ' · ' + compFilter;
+
+  const groups = {};
+  builds.forEach(b => { const k = b.component || 'Unassigned'; (groups[k] = groups[k] || []).push(b); });
+  const compNames = Object.keys(groups).sort();
+
+  const grandTotal = builds.reduce((s,b) => s + (parseInt(b.plannedBuilds)||0) + (parseInt(b.unplannedBuilds)||0), 0);
+  const grandPlanned = builds.reduce((s,b) => s + (parseInt(b.plannedBuilds)||0), 0);
+  const grandUnplanned = builds.reduce((s,b) => s + (parseInt(b.unplannedBuilds)||0), 0);
+  const grandBvt = builds.reduce((s,b) => s + (parseInt(b.bvtFailed)||0), 0);
+
+  const summaryRows = compNames.map(comp => {
+    const entries = groups[comp];
+    const total = entries.reduce((s,e) => s + (parseInt(e.plannedBuilds)||0) + (parseInt(e.unplannedBuilds)||0), 0);
+    const planned = entries.reduce((s,e) => s + (parseInt(e.plannedBuilds)||0), 0);
+    const unplanned = entries.reduce((s,e) => s + (parseInt(e.unplannedBuilds)||0), 0);
+    const bvt = entries.reduce((s,e) => s + (parseInt(e.bvtFailed)||0), 0);
+    return '<tr><td>' + escapeHtml(comp) + '</td><td class="r">' + total + '</td><td class="r">' + planned + '</td><td class="r">' + unplanned + '</td><td class="r">' + bvt + '</td></tr>';
+  }).join('');
+
+  const detailSections = compNames.map(comp => {
+    const entries = groups[comp].slice().sort((a,b) => (a.gaDate||'').localeCompare(b.gaDate||''));
+    const rows = entries.map(e => {
+      const tags = (e.taggedItemIds || []).map(id => {
+        const p = state.projects.find(pp => pp.id === id);
+        return p ? escapeHtml(p.name) : '';
+      }).filter(Boolean).join(', ');
+      return '<tr>' +
+        '<td>' + (e.gaDate ? formatDateDisplay(e.gaDate) : '—') + '</td>' +
+        '<td>' + escapeHtml(e.version||'—') + '</td>' +
+        '<td>' + escapeHtml(e.owner||'—') + '</td>' +
+        '<td class="r">' + (e.plannedBuilds||0) + '</td>' +
+        '<td class="r">' + (e.unplannedBuilds||0) + '</td>' +
+        '<td class="r">' + (e.bvtFailed||0) + '</td>' +
+        '<td>' + escapeHtml(e.issueBy||'—') + '</td>' +
+        '<td>' + escapeHtml(e.reason||'—') + '</td>' +
+        '<td>' + (tags || '—') + '</td>' +
+        '<td>' + escapeHtml(e.comments||'—') + '</td>' +
+      '</tr>';
+    }).join('');
+    return '<div class="project-card"><div class="project-card-body"><div class="section-label">' + escapeHtml(comp) + '</div>' +
+      '<div class="matrix-wrap"><table class="matrix-table"><thead><tr>' +
+        '<th>GA date</th><th>Version</th><th>Owner</th><th class="r">Planned</th><th class="r">Unplanned</th><th class="r">BVT failed</th><th>Identified by</th><th>Reason</th><th>Tagged items</th><th>Comments</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div></div></div>';
+  }).join('');
+
+  const bodyHtml =
+    '<div class="project-card"><div class="project-card-body">' +
+      '<div class="section-label">Summary — component wise</div>' +
+      '<div class="matrix-wrap"><table class="matrix-table"><thead><tr><th>Component</th><th class="r">Total</th><th class="r">Planned</th><th class="r">Unplanned</th><th class="r">BVT failed</th></tr></thead>' +
+      '<tbody>' + summaryRows + '</tbody>' +
+      '<tfoot><tr class="row-total"><td><strong>Grand total</strong></td><td class="r"><strong>' + grandTotal + '</strong></td><td class="r"><strong>' + grandPlanned + '</strong></td><td class="r"><strong>' + grandUnplanned + '</strong></td><td class="r"><strong>' + grandBvt + '</strong></td></tr></tfoot>' +
+      '</table></div>' +
+    '</div></div>' +
+    detailSections;
+
+  const fullHtml = buildFullReportHtml(title, bodyHtml);
+  const blob = new Blob([fullHtml], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.target = '_blank'; a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // ====================== TEAM CHAT ======================
