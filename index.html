@@ -1766,6 +1766,21 @@
     </div>
   </div>
 
+  <!-- Post-publish Move to Release Vault prompt -->
+  <div class="modal-overlay" id="moveToVaultPromptModal">
+    <div class="modal" style="max-width:440px; text-align:center;">
+      <div style="font-size:34px; margin-bottom:10px;">🔒</div>
+      <h3 style="margin-bottom:8px;">Ready for the Release Vault?</h3>
+      <p style="font-size:13px; color:var(--text-dim); line-height:1.5; margin-bottom:18px;" id="moveToVaultPromptText">
+        All test statuses are marked Done and this test plan has been reviewed.
+      </p>
+      <div class="modal-actions" style="justify-content:center; gap:10px;">
+        <button class="ghost" onclick="dismissMoveToVaultPrompt()">Not now</button>
+        <button onclick="confirmMoveToVaultFromPrompt()" style="background:linear-gradient(135deg,#7c3aed,#2563eb); color:white; border:none; border-radius:8px; padding:8px 16px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit;">🔒 Move to Release Vault</button>
+      </div>
+    </div>
+  </div>
+
   <!-- HELP TAB -->
   <!-- Launchpad Tab -->
   <div class="tab-content" id="tab-knowledge" style="display:none;">
@@ -8954,6 +8969,7 @@ async function publishDraft() {
     renderTestPlan();
     markDirty('projects', 'summary');
     showToastMsg('🚀 Published! All users will see the latest changes.');
+    maybeShowMoveToVaultPrompt(selectedTestPlanProjectId);
   } catch(e) {
     showToastMsg('❌ Publish failed: ' + (e.message || e));
   }
@@ -9303,16 +9319,51 @@ function updateMoveToVaultButton() {
   }
 }
 
-function moveToReleaseVault() {
-  const proj = state.projects.find(p => p.id === selectedTestPlanProjectId);
+function doMoveToReleaseVault(projId) {
+  const proj = state.projects.find(p => p.id === projId);
   if (!proj) return;
-  if (!confirm('Move "' + proj.name + '" to Release Vault?\n\nStatus will be set to "Completed" for everyone.')) return;
   snapshotState('Move to vault: ' + proj.name);
   proj.status = 'Completed';
   saveRelease(proj);
   showToastMsg('🔒 Moved to Release Vault');
   updateMoveToVaultButton();
   renderProjects();
+}
+
+function moveToReleaseVault() {
+  const proj = state.projects.find(p => p.id === selectedTestPlanProjectId);
+  if (!proj) return;
+  if (!confirm('Move "' + proj.name + '" to Release Vault?\n\nStatus will be set to "Completed" for everyone.')) return;
+  doMoveToReleaseVault(proj.id);
+}
+
+// Post-publish popup — shown automatically right after Publish when every
+// condition is already met. The item only moves when the user explicitly
+// clicks "Move to Release Vault" inside this popup.
+let pendingVaultProjectId = null;
+
+function maybeShowMoveToVaultPrompt(projId) {
+  const plan = state.testPlans && state.testPlans[projId];
+  const proj = state.projects.find(p => p.id === projId);
+  if (!plan || !proj) return;
+  if (proj.status === 'Completed') return; // already in the vault
+  if (plan.reviewed !== true) return;
+  if (computeAutoStatus(plan) !== 'Completed') return;
+
+  pendingVaultProjectId = projId;
+  document.getElementById('moveToVaultPromptText').textContent =
+    'All test statuses for "' + proj.name + '" are marked Done and this test plan has been reviewed.';
+  document.getElementById('moveToVaultPromptModal').classList.add('show');
+}
+
+function confirmMoveToVaultFromPrompt() {
+  if (pendingVaultProjectId) doMoveToReleaseVault(pendingVaultProjectId);
+  dismissMoveToVaultPrompt();
+}
+
+function dismissMoveToVaultPrompt() {
+  pendingVaultProjectId = null;
+  document.getElementById('moveToVaultPromptModal').classList.remove('show');
 }
 
 
