@@ -1338,7 +1338,7 @@
     <div class="panel" id="releaseExecTrackerPanel">
       <div class="panel-head">
         <div>
-          <h3>📊 Release execution tracker</h3>
+          <h3>📊 Release execution tracker <span id="execTrackerMonthLabel" style="font-size:11px; font-weight:600; color:#7c3aed; background:#f3e8ff; padding:2px 10px; border-radius:20px; margin-left:6px; vertical-align:middle;"></span></h3>
           <div class="desc">Planned vs actual PD burned per release item, based on this month's daily plan</div>
         </div>
       </div>
@@ -1349,8 +1349,8 @@
     <div class="panel" id="mergedBuildDatesPanel">
       <div class="panel-head">
         <div>
-          <h3>🧩 Merged build — important dates</h3>
-          <div class="desc">Component-wise key dates for the merged build</div>
+          <h3>🧩 Merged build — important dates <span id="mergedBuildMonthLabel" style="font-size:11px; font-weight:600; color:#7c3aed; background:#f3e8ff; padding:2px 10px; border-radius:20px; margin-left:6px; vertical-align:middle;"></span></h3>
+          <div class="desc">Component-wise key dates for the merged build — showing rows relevant to this month</div>
         </div>
         <button class="action" onclick="addMergedBuildDateRow()">+ Add component date entry</button>
       </div>
@@ -1512,7 +1512,7 @@
           <div style="display:flex; align-items:center; gap:8px;">
             <span id="dcChevron" style="font-size:11px; color:var(--text-faint);">▸</span>
             <span style="font-size:14px; font-weight:600;">Dimension checklist</span>
-            <span id="dcSummaryText" style="font-size:11.5px; color:var(--text-faint);">No rows yet</span>
+            <span id="dcSummaryText" style="font-size:11px; font-weight:700; color:#7c3aed; background:#f3e8ff; padding:3px 11px; border-radius:20px;">No rows yet</span>
           </div>
           <span onclick="event.stopPropagation();openDimensionChecklistModal();" style="font-size:11px; padding:4px 10px; border-radius:6px; border:1px solid var(--border); cursor:pointer;">⤢ Open</span>
         </button>
@@ -9159,9 +9159,13 @@ function renderDimensionChecklistSummary() {
   const rows = plan.dimensionChecklist || [];
   if (rows.length === 0) {
     el.textContent = 'No rows yet';
+    el.style.color = 'var(--text-faint)';
+    el.style.background = 'var(--panel-2)';
   } else {
     const totalCases = rows.reduce((s, r) => s + (parseFloat(r.count) || 0), 0);
     el.textContent = `${rows.length} scenario${rows.length === 1 ? '' : 's'} · ${totalCases} test case${totalCases === 1 ? '' : 's'}`;
+    el.style.color = '#7c3aed';
+    el.style.background = '#f3e8ff';
   }
 }
 
@@ -13567,20 +13571,32 @@ function renderReleaseExecTracker() {
   const body = document.getElementById('releaseExecTrackerBody');
   if (!body) return;
 
-  // Actual PD burned per project name — count each working-day assignment as 1 PD
+  const monthLabelEl = document.getElementById('execTrackerMonthLabel');
+  if (monthLabelEl) {
+    const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    monthLabelEl.textContent = mNames[dayMonth] + ' ' + dayYear;
+  }
+
+  // Actual PD burned per project name — scoped to the currently selected
+  // Daily Plan month (dayYear/dayMonth), so switching months shows only
+  // the release items that actually had activity in that month.
   const burnedByProject = {};
   state.dailyPlan.forEach(e => {
     if (!e.project) return;
     const key = e.project.trim().toLowerCase();
     if (e.date) {
       const d = new Date(e.date + 'T00:00:00');
-      if (isWorkingDay(d, e.date)) burnedByProject[key] = (burnedByProject[key] || 0) + 1;
+      if (d.getFullYear() === dayYear && d.getMonth() === dayMonth && isWorkingDay(d, e.date)) {
+        burnedByProject[key] = (burnedByProject[key] || 0) + 1;
+      }
     } else if (e.startDate && e.endDate) {
       let cur = new Date(e.startDate + 'T00:00:00');
       const end = new Date(e.endDate + 'T00:00:00');
       while (cur <= end) {
         const dk = cur.getFullYear() + '-' + String(cur.getMonth()+1).padStart(2,'0') + '-' + String(cur.getDate()).padStart(2,'0');
-        if (isWorkingDay(cur, dk)) burnedByProject[key] = (burnedByProject[key] || 0) + 1;
+        if (cur.getFullYear() === dayYear && cur.getMonth() === dayMonth && isWorkingDay(cur, dk)) {
+          burnedByProject[key] = (burnedByProject[key] || 0) + 1;
+        }
         cur.setDate(cur.getDate() + 1);
       }
     }
@@ -13589,7 +13605,7 @@ function renderReleaseExecTracker() {
   const rows = state.projects.filter(p => burnedByProject[p.name.trim().toLowerCase()] > 0);
 
   if (rows.length === 0) {
-    body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-faint);font-style:italic;font-size:13px;">No release items have daily plan assignments yet.</div>';
+    body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-faint);font-style:italic;font-size:13px;">No release items have daily plan assignments in this month.</div>';
     return;
   }
 
@@ -13643,11 +13659,32 @@ function renderMergedBuildDates() {
   if (!body) return;
   if (!state.mergedBuildDates) state.mergedBuildDates = [];
 
+  const monthLabelEl = document.getElementById('mergedBuildMonthLabel');
+  if (monthLabelEl) {
+    const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    monthLabelEl.textContent = mNames[dayMonth] + ' ' + dayYear;
+  }
+
   const components = [...new Set(state.projects.map(p => p.component).filter(Boolean))];
   const canEditDP = canEdit('dailyplan');
 
-  if (state.mergedBuildDates.length === 0) {
-    body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-faint);font-style:italic;font-size:13px;">No component dates added yet.</div>';
+  const dateFields = ['goAheadDate', 'devToQaDate', 'bvtDate', 'regressionDate', 'releaseDate'];
+  const isInSelectedMonth = (dateStr) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.getFullYear() === dayYear && d.getMonth() === dayMonth;
+  };
+  // Show a row if any of its dates fall in the selected month, or if it has
+  // no dates set yet at all (so a freshly-added blank row stays visible
+  // long enough to be filled in).
+  const monthRows = state.mergedBuildDates.filter(row => {
+    const hasAnyDate = dateFields.some(f => row[f]);
+    if (!hasAnyDate) return true;
+    return dateFields.some(f => isInSelectedMonth(row[f]));
+  });
+
+  if (monthRows.length === 0) {
+    body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-faint);font-style:italic;font-size:13px;">No component dates for this month.</div>';
     return;
   }
 
@@ -13659,7 +13696,7 @@ function renderMergedBuildDates() {
     ['releaseDate', 'Release date'],
   ];
 
-  const rowsHtml = state.mergedBuildDates.map(row => {
+  const rowsHtml = monthRows.map(row => {
     const compOptions = ['<option value="">— select —</option>']
       .concat(components.map(c => `<option value="${escapeHtml(c)}" ${row.component === c ? 'selected' : ''}>${escapeHtml(c)}</option>`))
       .join('');
