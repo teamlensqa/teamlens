@@ -1414,17 +1414,21 @@
   <div class="tab-content" id="tab-buildreport" style="display:none;">
     <div class="panel">
       <div class="panel-head">
-        <div>
-          <h3>🧩 Engg build report</h3>
-          <div class="desc">Component-wise build history — planned, unplanned, BVT failures and tagged release items</div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg,#0f766e,#0891b2); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">🧩</div>
+          <div>
+            <h3 style="margin:0;">Engg build report</h3>
+            <div class="desc">Component-wise build history — planned, unplanned, BVT failures and tagged release items</div>
+          </div>
         </div>
         <div style="display:flex; gap:8px;">
           <button class="ghost" onclick="openEngBuildReportInTab()">📊 View report</button>
-          <button class="action" onclick="openEngBuildModal()">+ Add build entry</button>
+          <button class="action" onclick="openEngBuildModal()" style="background:linear-gradient(135deg,#7c3aed,#2563eb); color:white; border:none; border-radius:8px; padding:8px 16px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit;">+ Add build entry</button>
         </div>
       </div>
 
-      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px; background:var(--panel-2); border-radius:10px; padding:10px 12px;">
+        <span style="font-size:11px; color:var(--text-faint); font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Filter:</span>
         <select id="ebrComponentFilter" onchange="renderEngBuildReport()" style="font-size:12px; padding:6px 10px;">
           <option value="">All components</option>
         </select>
@@ -1441,71 +1445,82 @@
   <!-- Engg Build Entry Modal -->
   <div class="modal-overlay" id="engBuildModal">
     <div class="modal" style="width:92vw; max-width:640px;">
-      <h3 id="engBuildModalTitle">Add build entry</h3>
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
+        <div style="width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg,#0f766e,#0891b2); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">🧩</div>
+        <h3 id="engBuildModalTitle" style="margin:0;">Add build entry</h3>
+      </div>
       <input type="hidden" id="engBuildEditId" value="">
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
-        <div class="field">
-          <label>Component</label>
-          <select id="ebComponent" onchange="updateEngBuildSuggestions()"></select>
+      <div style="background:linear-gradient(135deg,rgba(15,118,110,0.06),rgba(8,145,178,0.04)); border:1px solid rgba(15,118,110,0.15); border-radius:12px; padding:14px 16px; margin-bottom:14px;">
+        <div style="font-size:11px; font-weight:700; color:#0f766e; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px;">📦 Build details</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+          <div class="field" style="margin-bottom:0;">
+            <label>Component</label>
+            <select id="ebComponent" onchange="updateEngBuildSuggestions()"></select>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>GA date</label>
+            <input type="date" id="ebGaDate" onchange="updateEngBuildSuggestions()">
+          </div>
         </div>
-        <div class="field">
-          <label>GA date</label>
-          <input type="date" id="ebGaDate" onchange="updateEngBuildSuggestions()">
-        </div>
-      </div>
-
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
-        <div class="field">
-          <label>Version</label>
-          <input type="text" id="ebVersion" placeholder="3.23.7.0">
-        </div>
-        <div class="field">
-          <label>Dev release owner(s)</label>
-          <input type="text" id="ebOwner" placeholder="Aditya/Rohit">
-        </div>
-      </div>
-
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:10px;">
-        <div class="field">
-          <label>Planned builds</label>
-          <input type="number" min="0" id="ebPlanned" value="0">
-        </div>
-        <div class="field">
-          <label>Unplanned builds</label>
-          <input type="number" min="0" id="ebUnplanned" value="0">
-        </div>
-        <div class="field">
-          <label>BVT failed</label>
-          <input type="number" min="0" id="ebBvt" value="0">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="field" style="margin-bottom:0;">
+            <label>Version</label>
+            <input type="text" id="ebVersion" placeholder="3.23.7.0">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Dev release owner(s)</label>
+            <input type="text" id="ebOwner" placeholder="Aditya/Rohit">
+          </div>
         </div>
       </div>
 
-      <div class="field" style="margin-bottom:10px;">
-        <label>Issue identified by</label>
-        <select id="ebIssueBy">
-          <option value="">—</option>
-          <option value="QA">QA</option>
-          <option value="Dev">Dev</option>
-          <option value="Customer">Customer</option>
-        </select>
+      <div style="background:linear-gradient(135deg,rgba(124,58,237,0.06),rgba(37,99,235,0.04)); border:1px solid rgba(124,58,237,0.15); border-radius:12px; padding:14px 16px; margin-bottom:14px;">
+        <div style="font-size:11px; font-weight:700; color:#7c3aed; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px;">🔢 Build numbers</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:10px;">
+          <div class="field" style="margin-bottom:0;">
+            <label>Planned builds</label>
+            <input type="number" min="0" id="ebPlanned" value="0">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Unplanned builds</label>
+            <input type="number" min="0" id="ebUnplanned" value="0">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>BVT failed</label>
+            <input type="number" min="0" id="ebBvt" value="0">
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Issue identified by</label>
+          <select id="ebIssueBy">
+            <option value="">—</option>
+            <option value="QA">QA</option>
+            <option value="Dev">Dev</option>
+            <option value="Customer">Customer</option>
+          </select>
+        </div>
       </div>
 
-      <div id="ebSuggestionsBox" style="display:none; background:var(--panel-2); border-radius:10px; padding:10px 12px; margin-bottom:12px;">
-        <div style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-bottom:8px;">✨ Release items for this component + date</div>
+      <div style="background:linear-gradient(135deg,rgba(217,119,6,0.07),rgba(234,179,8,0.04)); border:1px solid rgba(217,119,6,0.18); border-radius:12px; padding:14px 16px; margin-bottom:14px;">
+        <div style="font-size:11px; font-weight:700; color:#b45309; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px;">🏷️ Tagged release items</div>
         <div id="ebSuggestionsList" style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;"></div>
-        <select id="ebManualTagSelect" onchange="addManualEngBuildTag(this.value); this.value='';" style="font-size:12px; padding:5px 8px;">
-          <option value="">+ Tag another release item…</option>
+        <label style="font-size:10.5px; color:var(--text-faint); font-weight:600; display:block; margin-bottom:4px;">Release item</label>
+        <select id="ebManualTagSelect" onchange="addManualEngBuildTag(this.value); this.value='';" disabled style="font-size:12px; padding:6px 10px; width:100%;">
+          <option value="">Select component + GA date first…</option>
         </select>
       </div>
 
-      <div class="field" style="margin-bottom:10px;">
-        <label>Reason for unplanned / BVT failure</label>
-        <textarea id="ebReason" rows="2" style="font-family:inherit;"></textarea>
-      </div>
-      <div class="field" style="margin-bottom:10px;">
-        <label>Any other comments</label>
-        <textarea id="ebComments" rows="2" style="font-family:inherit;"></textarea>
+      <div style="background:var(--panel-2); border-radius:12px; padding:14px 16px; margin-bottom:10px;">
+        <div style="font-size:11px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px;">📝 Notes</div>
+        <div class="field" style="margin-bottom:10px;">
+          <label>Reason for unplanned / BVT failure</label>
+          <textarea id="ebReason" rows="2" style="font-family:inherit;"></textarea>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Any other comments</label>
+          <textarea id="ebComments" rows="2" style="font-family:inherit;"></textarea>
+        </div>
       </div>
 
       <div class="modal-actions">
@@ -13961,10 +13976,10 @@ function renderEngBuildReport() {
   const grandBvt = builds.reduce((s,b) => s + (parseInt(b.bvtFailed)||0), 0);
   if (summaryEl) {
     summaryEl.innerHTML =
-      '<div class="stat-card"><div class="label">Total builds</div><div class="value">' + grandTotal + '</div></div>' +
-      '<div class="stat-card"><div class="label">Planned</div><div class="value">' + grandPlanned + '</div></div>' +
-      '<div class="stat-card"><div class="label">Unplanned</div><div class="value">' + grandUnplanned + '</div></div>' +
-      '<div class="stat-card"><div class="label">BVT failed</div><div class="value" style="color:#dc2626;">' + grandBvt + '</div></div>';
+      '<div class="stat-card" style="background:linear-gradient(135deg,rgba(15,118,110,0.08),rgba(8,145,178,0.05)); border:1px solid rgba(15,118,110,0.15);"><div class="label">📦 Total builds</div><div class="value" style="color:#0f766e;">' + grandTotal + '</div></div>' +
+      '<div class="stat-card" style="background:linear-gradient(135deg,rgba(37,99,235,0.08),rgba(37,99,235,0.03)); border:1px solid rgba(37,99,235,0.15);"><div class="label">✅ Planned</div><div class="value" style="color:#1d4ed8;">' + grandPlanned + '</div></div>' +
+      '<div class="stat-card" style="background:linear-gradient(135deg,rgba(217,119,6,0.08),rgba(234,179,8,0.04)); border:1px solid rgba(217,119,6,0.18);"><div class="label">⚡ Unplanned</div><div class="value" style="color:#b45309;">' + grandUnplanned + '</div></div>' +
+      '<div class="stat-card" style="background:linear-gradient(135deg,rgba(220,38,38,0.08),rgba(220,38,38,0.03)); border:1px solid rgba(220,38,38,0.18);"><div class="label">🚨 BVT failed</div><div class="value" style="color:#dc2626;">' + grandBvt + '</div></div>';
   }
 
   if (builds.length === 0) {
@@ -14008,13 +14023,14 @@ function renderEngBuildReport() {
       '</tr>';
     }).join('');
 
-    return '<div class="panel" style="margin-bottom:0;padding:0;overflow:hidden;">' +
+    return '<div class="panel" style="margin-bottom:0;padding:0;overflow:hidden;border-left:3px solid #0891b2;">' +
       '<div onclick="toggleAccPanel(\'' + accId + '\')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;">' +
+        '<div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#0f766e,#0891b2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🧩</div>' +
         '<div style="flex:1;min-width:0;font-size:14px;font-weight:700;">' + escapeHtml(comp) + '</div>' +
         '<div style="display:flex;gap:14px;font-size:12px;color:var(--text-faint);flex-shrink:0;flex-wrap:wrap;">' +
           '<span>total <strong style="color:var(--text);">' + total + '</strong></span>' +
-          '<span>planned <strong style="color:var(--text);">' + planned + '</strong></span>' +
-          '<span>unplanned <strong style="color:var(--text);">' + unplanned + '</strong></span>' +
+          '<span>planned <strong style="color:#1d4ed8;">' + planned + '</strong></span>' +
+          '<span>unplanned <strong style="color:#b45309;">' + unplanned + '</strong></span>' +
           '<span>bvt failed <strong style="color:' + (bvt>0?'#dc2626':'var(--text)') + ';">' + bvt + '</strong></span>' +
         '</div>' +
         '<span id="' + accId + '-ch" style="font-size:11px;color:var(--text-faint);">▼</span>' +
@@ -14091,32 +14107,33 @@ function editEngBuildEntry(id) {
 function updateEngBuildSuggestions() {
   const component = document.getElementById('ebComponent').value;
   const gaDate = document.getElementById('ebGaDate').value;
-  const box = document.getElementById('ebSuggestionsBox');
   const listEl = document.getElementById('ebSuggestionsList');
   const manualSel = document.getElementById('ebManualTagSelect');
-  if (!box || !listEl) return;
+  if (!listEl) return;
 
-  if (component && gaDate) {
-    const matched = state.projects.filter(p => p.component === component && p.releaseDate === gaDate);
-    matched.forEach(p => { if (!ebSelectedTags.includes(p.id)) ebSelectedTags.push(p.id); });
-    box.style.display = 'block';
-  } else {
-    box.style.display = ebSelectedTags.length > 0 ? 'block' : 'none';
-  }
-
+  // Already-tagged items — shown with a remove option
   listEl.innerHTML = ebSelectedTags.map(id => {
     const p = state.projects.find(pp => pp.id === id);
     if (!p) return '';
-    return '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;">' +
+    return '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;background:var(--panel);border-radius:8px;padding:6px 10px;">' +
       '<input type="checkbox" checked onchange="removeEngBuildTag(\'' + id + '\')">' + escapeHtml(p.name) +
     '</label>';
-  }).join('') || '<div style="font-size:12px;color:var(--text-faint);font-style:italic;">No matching release items found — you can tag manually below.</div>';
+  }).join('') || '<div style="font-size:12px;color:var(--text-faint);font-style:italic;">No release items tagged yet.</div>';
 
   if (manualSel) {
-    const untagged = state.projects.filter(p => !ebSelectedTags.includes(p.id));
-    manualSel.innerHTML = '<option value="">+ Tag another release item…</option>' +
-      untagged.map(p => '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>').join('');
+    if (component && gaDate) {
+      // Dropdown filtered to release items matching this component + GA date
+      const matched = state.projects.filter(p => p.component === component && p.releaseDate === gaDate && !ebSelectedTags.includes(p.id));
+      manualSel.disabled = false;
+      manualSel.innerHTML = matched.length > 0
+        ? '<option value="">+ Select a release item…</option>' + matched.map(p => '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>').join('')
+        : '<option value="">No matching release items for this date</option>';
+    } else {
+      manualSel.disabled = true;
+      manualSel.innerHTML = '<option value="">Select component + GA date first…</option>';
+    }
   }
+
 }
 
 function addManualEngBuildTag(projId) {
