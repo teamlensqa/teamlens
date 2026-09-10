@@ -1514,7 +1514,7 @@
             <span style="font-size:14px; font-weight:600;">Dimension checklist</span>
             <span id="dcSummaryText" style="font-size:11px; font-weight:700; color:#7c3aed; background:#f3e8ff; padding:3px 11px; border-radius:20px;">No rows yet</span>
           </div>
-          <span onclick="event.stopPropagation();openDimensionChecklistModal();" style="font-size:11px; padding:4px 10px; border-radius:6px; border:1px solid var(--border); cursor:pointer;">⤢ Open</span>
+          <span onclick="event.stopPropagation();openDimensionChecklistModal();" style="font-size:11px; font-weight:700; padding:5px 12px; border-radius:20px; border:none; background:linear-gradient(135deg,#7c3aed,#2563eb); color:white; cursor:pointer; box-shadow:0 2px 6px rgba(124,58,237,0.25);">⤢ Open</span>
         </button>
       </div>
 
@@ -9175,7 +9175,12 @@ function openDimensionChecklistModal() {
   const plan = getTestPlanForProject(selectedTestPlanProjectId);
   const rows = (plan && plan.dimensionChecklist) || [];
   dcMode = rows.length > 0 ? 'view' : 'edit';
-  document.getElementById('dimensionChecklistModal').classList.add('show');
+  const modalEl = document.getElementById('dimensionChecklistModal');
+  // Move to <body> so it's not affected by the tab-content's transform
+  // animation (which otherwise breaks position:fixed and makes the modal
+  // appear far down the page instead of centered in the viewport).
+  if (modalEl && modalEl.parentElement !== document.body) document.body.appendChild(modalEl);
+  modalEl.classList.add('show');
   renderDimensionChecklistModalBody();
 }
 
@@ -9414,7 +9419,9 @@ function maybeShowMoveToVaultPrompt(projId) {
   pendingVaultProjectId = projId;
   document.getElementById('moveToVaultPromptText').textContent =
     'All test statuses for "' + proj.name + '" are marked Done and this test plan has been reviewed.';
-  document.getElementById('moveToVaultPromptModal').classList.add('show');
+  const modalEl = document.getElementById('moveToVaultPromptModal');
+  if (modalEl && modalEl.parentElement !== document.body) document.body.appendChild(modalEl);
+  modalEl.classList.add('show');
 }
 
 function confirmMoveToVaultFromPrompt() {
