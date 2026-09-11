@@ -1331,7 +1331,7 @@
       </div>
       <div id="dpClipboardBanner" style="display:none;align-items:center;gap:10px;padding:8px 12px;background:#f3e8ff;border:1px solid #d8b4fe;border-radius:10px;margin-bottom:10px;"></div>
       <div id="dpKeyDatesStrip" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;background:var(--panel-2);border-radius:10px;margin-bottom:10px;"></div>
-      <div class="cal-scroll-wrap" id="dailyPlanScrollWrap" style="overflow-x:auto; overflow-y:auto; max-height:calc(100vh - 280px); border-radius:12px; border:1px solid var(--border-soft); position:relative; max-width:100%;">
+      <div class="cal-scroll-wrap" id="dailyPlanScrollWrap" style="overflow-x:auto; overflow-y:auto; max-height:calc(100vh - 280px); border-radius:12px; border:1px solid var(--border-soft); box-shadow:0 1px 4px rgba(0,0,0,0.04); position:relative; max-width:100%;">
         <div class="cal-grid" id="dailyPlanGrid" style="overflow:visible; min-width:max-content;"></div>
       </div>
       <div class="empty-state" id="dailyPlanEmpty" style="display:none;">Add people first, then assign them to a project for a date range.</div>
@@ -1749,8 +1749,8 @@
             </tbody>
             <tbody id="testRowTableBody"></tbody>
             <tfoot>
-              <tr style="background:var(--panel-2);">
-                <td colspan="2" style="font-weight:600;">Buffer</td>
+              <tr style="background:linear-gradient(135deg,rgba(124,58,237,0.08),rgba(37,99,235,0.04));">
+                <td colspan="2" style="font-weight:600;">🧩 Buffer</td>
                 <td style="text-align:center; color:var(--text-faint);">—</td>
                 <td style="text-align:center;">
                   <span id="testBufferEffortDisplay" style="font-weight:600;">0</span> PD
@@ -1758,10 +1758,10 @@
                 </td>
                 <td colspan="2"></td>
               </tr>
-              <tr style="background:var(--panel-2); font-weight:700;">
+              <tr style="background:var(--panel-2); font-weight:700; border-top:2px solid var(--border-soft);">
                 <td colspan="2">Total</td>
                 <td id="testTotalCases" style="text-align:center; font-family:var(--mono);">0</td>
-                <td id="testTotalEffort" style="text-align:center; font-family:var(--mono);">0</td>
+                <td id="testTotalEffort" style="text-align:center; font-family:var(--mono); color:#7c3aed;">0</td>
                 <td colspan="2"></td>
               </tr>
             </tfoot>
@@ -1803,12 +1803,12 @@
         </div>
         <table>
           <tbody>
-            <tr><td style="width:280px; color:var(--text-dim);">Build pickup</td><td><input id="msBuildPickup" type="date" onchange="saveMilestones()" oninput="saveMilestones()"></td></tr>
-            <tr><td style="color:var(--text-dim);">BVT completion</td><td><input id="msBvtCompletion" type="date" onchange="saveMilestones()" oninput="saveMilestones()"></td></tr>
-            <tr><td style="color:var(--text-dim);">P1 completion</td><td><input id="msP1Completion" type="date" onchange="saveMilestones()" oninput="saveMilestones()"></td></tr>
-            <tr><td style="color:var(--text-dim);">Execution completion without buffer</td><td><input id="msExecNoBuffer" type="date" onchange="saveMilestones()" oninput="saveMilestones()"></td></tr>
-            <tr><td style="color:var(--text-dim);">Execution completion with buffer</td><td><input id="msExecWithBuffer" type="date" onchange="saveMilestones()" oninput="saveMilestones()"></td></tr>
-            <tr><td style="color:var(--text-dim);">Merged build go ahead</td><td><input id="msMergedBuildGoAhead" type="date" onchange="saveMilestones()" oninput="saveMilestones()"></td></tr>
+            <tr><td style="width:280px; color:var(--text-dim);">📦 Build pickup</td><td><input id="msBuildPickup" type="date" onchange="saveMilestones()" oninput="saveMilestones()"> <span id="msBuildPickupBadge"></span></td></tr>
+            <tr><td style="color:var(--text-dim);">🧪 BVT completion</td><td><input id="msBvtCompletion" type="date" onchange="saveMilestones()" oninput="saveMilestones()"> <span id="msBvtCompletionBadge"></span></td></tr>
+            <tr><td style="color:var(--text-dim);">🎯 P1 completion</td><td><input id="msP1Completion" type="date" onchange="saveMilestones()" oninput="saveMilestones()"> <span id="msP1CompletionBadge"></span></td></tr>
+            <tr><td style="color:var(--text-dim);">📊 Execution completion without buffer</td><td><input id="msExecNoBuffer" type="date" onchange="saveMilestones()" oninput="saveMilestones()"> <span id="msExecNoBufferBadge"></span></td></tr>
+            <tr><td style="color:var(--text-dim);">🏁 Execution completion with buffer</td><td><input id="msExecWithBuffer" type="date" onchange="saveMilestones()" oninput="saveMilestones()"> <span id="msExecWithBufferBadge"></span></td></tr>
+            <tr><td style="color:var(--text-dim);">🚀 Merged build go ahead</td><td><input id="msMergedBuildGoAhead" type="date" onchange="saveMilestones()" oninput="saveMilestones()"> <span id="msMergedBuildGoAheadBadge"></span></td></tr>
           </tbody>
         </table>
       </div>
@@ -9631,6 +9631,23 @@ function saveBufferValues() {
   markDirty('projects');
 }
 
+function updateMilestoneStatusBadges() {
+  const ids = ['msBuildPickup', 'msBvtCompletion', 'msP1Completion', 'msExecNoBuffer', 'msExecWithBuffer', 'msMergedBuildGoAhead'];
+  const today = new Date(); today.setHours(0,0,0,0);
+  ids.forEach(id => {
+    const input = document.getElementById(id);
+    const badge = document.getElementById(id + 'Badge');
+    if (!input || !badge) return;
+    if (!input.value) { badge.innerHTML = ''; return; }
+    const d = new Date(input.value + 'T00:00:00');
+    if (d <= today) {
+      badge.innerHTML = '<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:600;">✅ Done</span>';
+    } else {
+      badge.innerHTML = '<span style="background:var(--panel-2);color:var(--text-faint);padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:600;">🕐 Upcoming</span>';
+    }
+  });
+}
+
 async function saveMilestones() {
   if (!selectedTestPlanProjectId) return;
   const plan = getTestPlanForProject(selectedTestPlanProjectId);
@@ -9694,7 +9711,9 @@ function renderTestPlan() {
       return `
         <tr style="${!reviewed ? 'opacity:0.85;' : ''}">
           <td style="font-weight:600;">${escapeHtml(r.name)}</td>
-          <td style="text-align:center; font-family:var(--mono); font-weight:600;">${r.coverage ? r.coverage + '%' : '—'}</td>
+          <td style="text-align:center;">
+            ${r.coverage ? `<div style="display:flex; align-items:center; gap:6px;"><div style="flex:1; height:5px; background:var(--panel-2); border-radius:99px; overflow:hidden;"><div style="height:100%; width:${Math.min(100, r.coverage)}%; background:#7c3aed; border-radius:99px;"></div></div><span style="font-family:var(--mono); font-weight:600; font-size:11px; flex-shrink:0;">${r.coverage}%</span></div>` : '<span style="color:var(--text-faint);">—</span>'}
+          </td>
           <td style="text-align:center; font-family:var(--mono); font-weight:600;">${r.cases || 0}</td>
           <td style="text-align:center; font-family:var(--mono); font-weight:600;">${r.effort || 0}</td>
           <td style="font-weight:600; font-size:12px;">${escapeHtml(assigneeDisplay)}</td>
@@ -9769,10 +9788,10 @@ function renderTestPlan() {
 
   const statsEl = document.getElementById('testPlanSummaryStats');
   statsEl.innerHTML = `
-    <div class="stat-card"><div class="label">Executable cases</div><div class="value">${executableCases}</div></div>
-    <div class="stat-card"><div class="label">Required PDs for execution</div><div class="value">${requiredPDs}</div></div>
-    <div class="stat-card"><div class="label">Total PDs with buffer</div><div class="value green">${totalPDsWithBuffer}</div></div>
-    <div class="stat-card"><div class="label">No of people / Total CD</div><div class="value">${noOfPeople} <span style="font-size:14px; color:var(--text-faint);">/ ${totalCD}</span></div></div>
+    <div class="stat-card"><div class="label">📋 Executable cases</div><div class="value">${executableCases}</div></div>
+    <div class="stat-card"><div class="label">⏱️ Required PDs for execution</div><div class="value">${requiredPDs}</div></div>
+    <div class="stat-card"><div class="label">🧩 Total PDs with buffer</div><div class="value green">${totalPDsWithBuffer}</div></div>
+    <div class="stat-card"><div class="label">👥 No of people / Total CD</div><div class="value">${noOfPeople} <span style="font-size:14px; color:var(--text-faint);">/ ${totalCD}</span></div></div>
   `;
 
   // Auto-sync: push values from Test plan into linked project ONLY if reviewed
@@ -9849,6 +9868,7 @@ function renderTestPlan() {
   document.getElementById('msExecNoBuffer').value = plan.milestones.execNoBuffer || '';
   document.getElementById('msExecWithBuffer').value = plan.milestones.execWithBuffer || '';
   document.getElementById('msMergedBuildGoAhead').value = plan.milestones.mergedBuildGoAhead || '';
+  updateMilestoneStatusBadges();
 
   // Review panel
   renderReviewPanel(plan);
@@ -13632,6 +13652,8 @@ function renderDailyPlan() {
     const dateObj = new Date(dayYear, dayMonth, d);
     const dateKey = `${dayYear}-${String(dayMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const nonWorking = !isWorkingDay(dateObj, dateKey);
+    const todayObj = new Date();
+    const isToday = dateObj.getFullYear() === todayObj.getFullYear() && dateObj.getMonth() === todayObj.getMonth() && dateObj.getDate() === todayObj.getDate();
     const holidayMatch = state.holidays.find(h => h.date === dateKey);
     const dateLabel = formatDateShort(dateKey);
     const dayMilestones = milestonesByDate[dateKey] || [];
@@ -13645,8 +13667,9 @@ function renderDailyPlan() {
       milestoneMarker = `<span title="${escapeHtml(tip)}" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#7c3aed;color:white;font-size:9px;font-weight:700;margin-left:6px;vertical-align:middle;">${dayMilestones.length}</span>`;
     }
 
-    html += `<div class="cal-cell name" style="position:sticky;left:0;z-index:5;min-width:${COL_DATE}px;width:${COL_DATE}px;${nonWorking?'opacity:0.55;':''}" title="${holidayMatch?escapeHtml(holidayMatch.name):''}">${dateLabel}${milestoneMarker}</div>`;
-    html += `<div class="cal-cell" style="position:sticky;left:${COL_DATE}px;z-index:5;background:var(--panel);${nonWorking?'opacity:0.55;':''}">${dayNames[dateObj.getDay()]}</div>`;
+    const todayBg = isToday ? 'background:rgba(124,58,237,0.12) !important;border-left:2px solid #7c3aed;' : '';
+    html += `<div class="cal-cell name" style="position:sticky;left:0;z-index:5;min-width:${COL_DATE}px;width:${COL_DATE}px;${nonWorking?'opacity:0.55;':''}${todayBg}" title="${holidayMatch?escapeHtml(holidayMatch.name):''}">${dateLabel}${milestoneMarker}</div>`;
+    html += `<div class="cal-cell" style="position:sticky;left:${COL_DATE}px;z-index:5;background:var(--panel);box-shadow:2px 0 4px rgba(0,0,0,0.06);${nonWorking?'opacity:0.55;':''}${isToday?'background:rgba(124,58,237,0.12) !important;':''}">${dayNames[dateObj.getDay()]}</div>`;
 
     filteredPeople.forEach(p => {
       const leaveMap_ = getLeaveMap(p.id);
@@ -13655,7 +13678,7 @@ function renderDailyPlan() {
       const entries = state.dailyPlan.filter(e => e.personId === p.id && e.date === dateKey);
 
       if (nonWorking) {
-        html += `<div class="cal-cell" style="background:var(--panel-2);color:var(--text-faint);opacity:0.5;text-align:left;padding-left:10px;">${holidayMatch?escapeHtml(holidayMatch.name):''}</div>`;
+        html += `<div class="cal-cell" style="background-color:var(--panel-2);background-image:repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(100,116,139,0.06) 6px, rgba(100,116,139,0.06) 12px);color:var(--text-faint);opacity:0.5;text-align:left;padding-left:10px;">${holidayMatch?escapeHtml(holidayMatch.name):''}</div>`;
       } else if (onLeave && leaveType !== 'WFH') {
         const leaveBg    = leaveType === 'UPL' ? '#fef2f2' : '#fefce8';
         const leaveBorder= leaveType === 'UPL' ? '#fecaca' : '#fde68a';
@@ -13669,7 +13692,7 @@ function renderDailyPlan() {
           const TASK_ICONS = {'Test Scenario Writing':'📝','Test Case Writing':'✍️','Test Data Prep':'🗂️','BVT':'🔬','Execution':'▶️'};
           const taskIcon = e.task ? (TASK_ICONS[e.task] || '🏷️') : '';
           const taskBadge = e.task
-            ? `<div style="display:inline-flex;align-items:center;gap:3px;background:${color}18;border:1px solid ${color}35;border-radius:4px;padding:0px 4px;font-size:9.5px;font-weight:700;color:${color};margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;"><span>${taskIcon}</span><span style="overflow:hidden;text-overflow:ellipsis;">${escapeHtml(e.task)}</span></div>`
+            ? `<div style="display:inline-flex;align-items:center;gap:3px;background:${color}18;border:1px solid ${color}35;border-radius:99px;padding:0px 6px;font-size:9.5px;font-weight:700;color:${color};margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;"><span>${taskIcon}</span><span style="overflow:hidden;text-overflow:ellipsis;">${escapeHtml(e.task)}</span></div>`
             : '';
           const canEditDP = canEdit('dailyplan');
           const actionBtns = canEditDP
