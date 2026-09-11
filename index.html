@@ -3959,8 +3959,6 @@ async function initApp(user) {
   try {
     await fetchUserRole(user.id);
     await loadState();
-    // Load all test plans on initial load — needed for Release Vault condition
-    await Promise.all(state.projects.map(p => loadFullTestPlanFromDB(p.id)));
     if (currentUserRole === 'admin') await fetchAllUserRoles();
     seedVMData();
     syncTestPlanToProjects();
@@ -3968,11 +3966,29 @@ async function initApp(user) {
     console.warn('initApp load error:', e);
   }
 
-  // Re-render with actual data
+  // Re-render with actual data — don't wait on per-project test plan
+  // detail loads below; tabs that don't need them (Engg build report,
+  // Daily plan, People, etc.) should show data immediately.
   markAllDirty();
   clearRenderCache();
   renderTab(savedTab);
   applyAccessUI();
+
+  // Load all test plans in the background — needed for Release Vault
+  // condition and the Test Plan tab itself. Re-render only if the
+  // active tab actually depends on this data.
+  (async () => {
+    try {
+      await Promise.all(state.projects.map(p => loadFullTestPlanFromDB(p.id)));
+      syncTestPlanToProjects();
+      if (['testplan', 'projects', 'summary', 'archive'].includes(_activeTab)) {
+        markAllDirty();
+        renderTab(_activeTab);
+      }
+    } catch (e) {
+      console.warn('Background test plan load error:', e);
+    }
+  })();
   initRealtime();
   // Show chat FAB immediately
   const _fab = document.getElementById('chatFab');
@@ -9442,9 +9458,9 @@ function renderDimensionChecklistEditGrid() {
   } else {
     body.innerHTML = rows.map(r => `
       <tr>
-        <td style="padding:5px 6px; vertical-align:top;"><textarea rows="2" oninput="updateDimensionRow('${r.id}','scenario',this.value)" style="width:100%; font-size:12px; padding:5px 6px; resize:vertical; min-height:44px; font-family:inherit; color:var(--text);">${escapeHtml(r.scenario||'')}</textarea></td>
-        <td style="padding:5px 6px; vertical-align:top;"><textarea rows="2" oninput="updateDimensionRow('${r.id}','subScenario',this.value)" style="width:100%; font-size:12px; padding:5px 6px; resize:vertical; min-height:44px; font-family:inherit; color:var(--text);">${escapeHtml(r.subScenario||'')}</textarea></td>
-        <td style="padding:5px 6px; vertical-align:top;"><textarea rows="2" oninput="updateDimensionRow('${r.id}','testCases',this.value)" style="width:100%; font-size:12px; padding:5px 6px; resize:vertical; min-height:44px; font-family:inherit; color:var(--text);">${escapeHtml(r.testCases||'')}</textarea></td>
+        <td style="padding:5px 6px; vertical-align:top;"><textarea rows="2" oninput="updateDimensionRow('${r.id}','scenario',this.value)" style="width:100%; font-size:12px; padding:5px 6px; resize:vertical; min-height:44px; font-family:inherit; color:var(--text); background:var(--panel); border:1px solid var(--border); border-radius:6px;">${escapeHtml(r.scenario||'')}</textarea></td>
+        <td style="padding:5px 6px; vertical-align:top;"><textarea rows="2" oninput="updateDimensionRow('${r.id}','subScenario',this.value)" style="width:100%; font-size:12px; padding:5px 6px; resize:vertical; min-height:44px; font-family:inherit; color:var(--text); background:var(--panel); border:1px solid var(--border); border-radius:6px;">${escapeHtml(r.subScenario||'')}</textarea></td>
+        <td style="padding:5px 6px; vertical-align:top;"><textarea rows="2" oninput="updateDimensionRow('${r.id}','testCases',this.value)" style="width:100%; font-size:12px; padding:5px 6px; resize:vertical; min-height:44px; font-family:inherit; color:var(--text); background:var(--panel); border:1px solid var(--border); border-radius:6px;">${escapeHtml(r.testCases||'')}</textarea></td>
         <td style="padding:5px 6px; vertical-align:top;"><input type="number" min="0" value="${r.count||''}" oninput="updateDimensionRow('${r.id}','count',this.value)" style="width:100%; font-size:12px; padding:4px 6px; text-align:right;"></td>
         <td style="padding:5px 6px; vertical-align:top;">
           <select onchange="updateDimensionRow('${r.id}','priority',this.value)" style="width:100%; font-size:12px; padding:4px 6px;">
@@ -14283,17 +14299,21 @@ function renderEngBuildReportInner() {
           '<button onclick="deleteEngBuildEntry(\'' + e.id + '\')" title="Delete" style="background:none;border:none;cursor:pointer;color:#dc2626;padding:2px 4px;">✕</button>'
         : '';
       const bvtVal = parseInt(e.bvtFailed) || 0;
+      const issueByBadge = e.issueBy
+        ? '<span style="font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--panel-2);color:var(--text-dim);white-space:nowrap;">' + escapeHtml(e.issueBy) + '</span>'
+        : '<span style="color:var(--text-faint);">—</span>';
       return '<tr style="border-top:1px solid var(--border-soft);">' +
         '<td style="padding:8px 6px;font-size:12px;white-space:nowrap;">' + (e.gaDate ? formatDateDisplay(e.gaDate) : '—') + '</td>' +
-        '<td style="padding:8px 6px;font-size:12px;">' + escapeHtml(e.version||'—') + '</td>' +
+        '<td style="padding:8px 6px;font-size:12px;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(e.version||'—') + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + (e.plannedBuilds||0) + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + (e.unplannedBuilds||0) + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;' + (bvtVal>0?'color:#dc2626;font-weight:700;':'') + '">' + bvtVal + '</td>' +
-        '<td style="padding:8px 6px;">' + (tags || '<span style="color:var(--text-faint);">—</span>') + '</td>' +
-        '<td style="padding:8px 6px;max-width:260px;">' + ((e.reason || e.comments) ?
+        '<td style="padding:8px 6px;overflow:hidden;">' + (tags || '<span style="color:var(--text-faint);">—</span>') + '</td>' +
+        '<td style="padding:8px 6px;text-align:center;">' + issueByBadge + '</td>' +
+        '<td style="padding:8px 6px;overflow:hidden;">' + ((e.reason || e.comments) ?
           '<details style="cursor:pointer;">' +
             '<summary style="font-size:11.5px;font-weight:600;color:#b45309;list-style:none;display:inline-flex;align-items:center;gap:4px;">📝 Notes</summary>' +
-            '<div style="margin-top:6px;font-size:12px;color:var(--text-dim);white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;line-height:1.5;background:var(--panel-2);border-radius:8px;padding:8px 10px;max-width:260px;">' +
+            '<div style="margin-top:6px;font-size:12px;color:var(--text-dim);white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;line-height:1.5;background:var(--panel-2);border-radius:8px;padding:8px 10px;max-width:240px;">' +
               (e.reason ? '<div style="margin-bottom:6px;"><strong style="color:var(--text);">Reason:</strong> ' + escapeHtml(e.reason) + '</div>' : '') +
               (e.comments ? '<div><strong style="color:var(--text);">Comments:</strong> ' + escapeHtml(e.comments) + '</div>' : '') +
             '</div>' +
@@ -14316,7 +14336,18 @@ function renderEngBuildReportInner() {
         '<span id="' + accId + '-ch" style="font-size:11px;color:var(--text-faint);">▼</span>' +
       '</div>' +
       '<div id="' + accId + '" style="display:none;padding:0 16px 14px;overflow-x:auto;overflow-y:auto;max-height:420px;">' +
-        '<table style="width:100%;min-width:760px;border-collapse:collapse;">' +
+        '<table style="width:100%;min-width:920px;border-collapse:collapse;table-layout:fixed;">' +
+          '<colgroup>' +
+            '<col style="width:90px;">' +
+            '<col style="width:90px;">' +
+            '<col style="width:70px;">' +
+            '<col style="width:80px;">' +
+            '<col style="width:70px;">' +
+            '<col style="width:220px;">' +
+            '<col style="width:90px;">' +
+            '<col style="width:140px;">' +
+            '<col style="width:60px;">' +
+          '</colgroup>' +
           '<thead><tr style="position:sticky;top:0;background:var(--panel);z-index:1;">' +
             '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">GA date</th>' +
             '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Version</th>' +
@@ -14324,6 +14355,7 @@ function renderEngBuildReportInner() {
             '<th style="text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Unplanned</th>' +
             '<th style="text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">BVT failed</th>' +
             '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Tagged release items</th>' +
+            '<th style="text-align:center;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Identified by</th>' +
             '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Notes</th>' +
             '<th></th>' +
           '</tr></thead>' +
