@@ -3094,9 +3094,9 @@ async function saveMilestonesRow(projId, ms) {
 }
 
 async function saveBufferRow(projId, plan) {
-  if (!sbClient || !projId) return;
+  if (!sbClient || !projId) return false;
   try {
-    await sbClient.from('test_plan_buffer').upsert({
+    const { error } = await sbClient.from('test_plan_buffer').upsert({
       project_id: projId,
       buffer_effort: getBufferTotal(plan),
       buffer_rows: plan.buffer?.rows || [],
@@ -3112,7 +3112,17 @@ async function saveBufferRow(projId, plan) {
       reviewed_at: plan.reviewedAt || '',
       updated_at: new Date().toISOString()
     });
-  } catch(e) { console.warn('saveBufferRow error:', e); }
+    if (error) {
+      console.error('saveBufferRow error:', error.message);
+      showToastMsg('❌ Save failed: ' + error.message);
+      return false;
+    }
+    return true;
+  } catch(e) {
+    console.warn('saveBufferRow error:', e);
+    showToastMsg('❌ Save failed: ' + (e.message || e));
+    return false;
+  }
 }
 
 async function loadEnvironments(projId) {
@@ -3198,6 +3208,7 @@ async function loadFullTestPlanFromDB(projId) {
     rows: rows,
     milestones: ms || existing.milestones || { buildPickup:'', bvtCompletion:'', p1Completion:'', execNoBuffer:'', execWithBuffer:'', mergedBuildGoAhead:'' },
     buffer: buf?.buffer || existing.buffer || { effort: 0 },
+    dimensionChecklist: buf?.dimensionChecklist || existing.dimensionChecklist || [],
     testPrepEffort: buf?.testPrepEffort || existing.testPrepEffort || 0,
     testPrepAssigneeIds: buf?.testPrepAssigneeIds || existing.testPrepAssigneeIds || [],
     testPrepStatus: buf?.testPrepStatus || existing.testPrepStatus || 'Not yet started',
@@ -9078,11 +9089,20 @@ async function publishDraft() {
     syncTestPlanToProjects();
 
     // Save to field-level tables ONLY — no saveState() to avoid realtime overwrite
-    await Promise.all([
+    const results = await Promise.all([
       saveBufferRow(selectedTestPlanProjectId, plan),
       saveMilestonesRow(selectedTestPlanProjectId, plan.milestones || {}),
       ...(plan.rows || []).map((row, i) => saveEnvironmentRow(selectedTestPlanProjectId, { ...row, sortOrder: i }))
     ]);
+    const anyFailed = results.some(r => r === false);
+
+    if (anyFailed) {
+      // Don't discard the local draft — the user's edits are still safe here,
+      // and they can retry Publish once the underlying issue is fixed.
+      showToastMsg('⚠️ Published with errors — some changes may not have saved. Your draft is kept, please retry.');
+      renderTestPlan();
+      return;
+    }
 
     // Save release with synced values (releases table — safe, per-row)
     const updProj = state.projects.find(p => p.id === selectedTestPlanProjectId);
