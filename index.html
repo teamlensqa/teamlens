@@ -1176,6 +1176,7 @@
           <h3>Team roster</h3>
           <div class="desc">People available for resource planning</div>
         </div>
+        <button class="ghost" onclick="openDevPodsModal()">⚙️ Manage PODs</button>
         <button class="action" onclick="openPersonModal()">+ Add person</button>
       </div>
       <table>
@@ -1255,12 +1256,6 @@
                 Dev POD
                 <select onchange="setDevPodFilter(this.value || null)" id="devPodSelect" style="display:block; margin-top:4px; width:100%; font-size:10px; padding:3px 6px; border-radius:6px; border:1px solid rgba(0,0,0,0.1); background:#f1f5f9; color:#475569; font-weight:500; cursor:pointer;">
                   <option value="">All PODs</option>
-                  <option>WinGuardians</option>
-                  <option>Heisenbug</option>
-                  <option>Hydra</option>
-                  <option>Sentinels</option>
-                  <option>DareDevils</option>
-                  <option>Evil Inc.</option>
                 </select>
               </th>
               <th style="white-space:nowrap;">Planned Dev to QA</th>
@@ -2099,6 +2094,22 @@
     </div>
   </div>
 
+  <!-- Manage Dev PODs Modal -->
+  <div class="modal-overlay" id="devPodsModal">
+    <div class="modal" style="width:440px;">
+      <h3>⚙️ Manage Dev PODs — <span id="devPodsModalTeam" style="color:var(--accent);"></span></h3>
+      <div class="desc" style="margin-bottom:16px; font-size:12.5px; color:var(--text-faint);">These PODs are specific to your current team. Add, rename, or remove them here.</div>
+      <div id="devPodsList" style="display:flex; flex-direction:column; gap:8px; max-height:320px; overflow-y:auto; margin-bottom:16px;"></div>
+      <div style="display:flex; gap:8px;">
+        <input id="devNewPodInput" placeholder="New POD name…" style="flex:1;" onkeydown="if(event.key==='Enter') addDevPodFromModal()">
+        <button class="action" onclick="addDevPodFromModal()" style="white-space:nowrap;">+ Add POD</button>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" onclick="closeModal('devPodsModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- VM Modal -->
   <div class="modal-overlay" id="vmModal">
     <div class="modal" style="width:480px;">
@@ -2372,12 +2383,6 @@
                 Dev POD
                 <select onchange="setSummaryPodFilter(this.value || null)" id="summaryPodSelect" style="display:block; margin-top:4px; width:100%; font-size:10px; padding:3px 6px; border-radius:6px; border:1px solid rgba(0,0,0,0.1); background:#f1f5f9; color:#475569; font-weight:500; cursor:pointer;">
                   <option value="">All PODs</option>
-                  <option>WinGuardians</option>
-                  <option>Heisenbug</option>
-                  <option>Hydra</option>
-                  <option>Sentinels</option>
-                  <option>DareDevils</option>
-                  <option>Evil Inc.</option>
                 </select>
               </th>
               <th style="white-space:nowrap;">JIRA</th>
@@ -2420,12 +2425,6 @@
       <label>Dev POD</label>
       <select id="personDevPod">
         <option value="">— No POD —</option>
-        <option value="WinGuardians">WinGuardians</option>
-        <option value="Heisenbug">Heisenbug</option>
-        <option value="Hydra">Hydra</option>
-        <option value="Sentinels">Sentinels</option>
-        <option value="DareDevils">DareDevils</option>
-        <option value="Evil Inc.">Evil Inc.</option>
       </select>
     </div>
     <div class="field">
@@ -2484,12 +2483,6 @@
       <label>Dev POD</label>
       <select id="projDevPod">
         <option value="">— Select POD —</option>
-        <option value="WinGuardians">WinGuardians</option>
-        <option value="Heisenbug">Heisenbug</option>
-        <option value="Hydra">Hydra</option>
-        <option value="Sentinels">Sentinels</option>
-        <option value="DareDevils">DareDevils</option>
-        <option value="Evil Inc.">Evil Inc.</option>
       </select>
     </div>
     <div class="field">
@@ -3016,6 +3009,61 @@ async function deleteReviewRequestRowDB(id) {
     if (error) { console.error('deleteReviewRequestRowDB error:', error.message); return false; }
     return true;
   } catch(e) { console.warn('deleteReviewRequestRowDB error:', e); return false; }
+}
+
+// Load dev PODs for the active team (dynamic, team-scoped list)
+async function loadDevPods() {
+  if (!sbClient) return;
+  try {
+    const { data, error } = await sbClient
+      .from('dev_pods')
+      .select('*')
+      .eq('team_id', currentTeamId || 'agent-qa')
+      .order('sort_order', { ascending: true });
+    if (error) throw error;
+    devPodsList = data || [];
+  } catch(e) { console.warn('loadDevPods error:', e); }
+}
+
+async function addDevPod(name) {
+  if (!sbClient || !name) return false;
+  if (devPodsList.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+    showToastMsg('⚠ A POD with that name already exists');
+    return false;
+  }
+  try {
+    const newPod = { id: uid(), name, team_id: currentTeamId || 'agent-qa', sort_order: devPodsList.length };
+    const { error } = await sbClient.from('dev_pods').insert(newPod);
+    if (error) throw error;
+    devPodsList.push(newPod);
+    return true;
+  } catch(e) { console.warn('addDevPod error:', e); showToastMsg('❌ Could not add POD'); return false; }
+}
+
+async function renameDevPod(id, newName) {
+  if (!sbClient || !id || !newName) return false;
+  try {
+    const { error } = await sbClient.from('dev_pods').update({ name: newName }).eq('id', id);
+    if (error) throw error;
+    const pod = devPodsList.find(p => p.id === id);
+    if (pod) {
+      const oldName = pod.name;
+      pod.name = newName;
+      // Keep existing people's assigned POD name in sync
+      state.people.forEach(p => { if (p.devPod === oldName) { p.devPod = newName; savePeopleRecord(p); } });
+    }
+    return true;
+  } catch(e) { console.warn('renameDevPod error:', e); showToastMsg('❌ Could not rename POD'); return false; }
+}
+
+async function deleteDevPod(id) {
+  if (!sbClient || !id) return false;
+  try {
+    const { error } = await sbClient.from('dev_pods').delete().eq('id', id);
+    if (error) throw error;
+    devPodsList = devPodsList.filter(p => p.id !== id);
+    return true;
+  } catch(e) { console.warn('deleteDevPod error:', e); showToastMsg('❌ Could not delete POD'); return false; }
 }
 
 async function loadEngineeringBuilds() {
@@ -4011,6 +4059,21 @@ let appInitialized = false;
 // ---------- Team Split ----------
 let currentUserTeamIds = ['agent-qa']; // teams this user belongs to
 let currentTeamId = null;              // the ACTIVE team for this session
+let devPodsList = []; // [{id, name, team_id}] for the active team, loaded fresh on team switch
+const POD_PALETTE = [
+  ['#dbeafe','#1d4ed8'], ['#dcfce7','#15803d'], ['#fce7f3','#9d174d'],
+  ['#fef3c7','#b45309'], ['#fee2e2','#b91c1c'], ['#f3e8ff','#7e22ce'],
+  ['#e0f2fe','#0369a1'], ['#fef9c3','#a16207'], ['#e0e7ff','#4338ca'], ['#ccfbf1','#0f766e']
+];
+function getPodColor(podName) {
+  if (!podName) return null; // preserves existing "no POD assigned" → dash behavior everywhere
+  const idx = devPodsList.findIndex(p => p.name === podName);
+  if (idx === -1) return ['var(--panel-2)','var(--text-dim)'];
+  return POD_PALETTE[idx % POD_PALETTE.length];
+}
+function getAllPodNames() {
+  return devPodsList.map(p => p.name);
+}
 const TEAM_NAMES = { 'agent-qa': 'Agent QA', 'server-qa': 'Server QA' };
 
 const DEFAULT_PERMISSIONS = {
@@ -5231,8 +5294,10 @@ async function loadState() {
         loadDailyPlan(),
         loadMergedBuildDates(),
         loadEngineeringBuilds(),
-        loadReviewRequests()
+        loadReviewRequests(),
+        loadDevPods()
       ]);
+      populateDevPodDropdowns();
       // One-time migration: if the new dedicated tables came back empty but
       // the old shared blob had data, copy it over so nothing is lost.
       migrateBuildDataToSeparateTables(_oldMergedBuildDates, _oldEngineeringBuilds, _oldReviewRequests);
@@ -6895,17 +6960,12 @@ function openAllPlansView() {
 }
 
 function buildAllPlansHtml(projects) {
-  const POD_COLORS = {
-    'WinGuardians':['#dbeafe','#1d4ed8'],'Heisenbug':['#dcfce7','#15803d'],
-    'Hydra':['#fce7f3','#9d174d'],'Sentinels':['#fef3c7','#b45309'],
-    'DareDevils':['#fee2e2','#b91c1c'],'Evil Inc.':['#f3e8ff','#7e22ce'],
-  };
   const sc = {'Completed':['#dcfce7','#15803d'],'In progress':['#fef3c7','#b45309'],'Not started':['#f1f5f9','#64748b'],'Blocked':['#fee2e2','#dc2626']};
 
   return projects.map((proj, idx) => {
     const plan     = getTestPlanForProject(proj.id);
     const reviewed = plan.reviewed === true;
-    const podC     = POD_COLORS[proj.devPod] || ['#f1f5f9','#64748b'];
+    const podC     = getPodColor(proj.devPod) || ['#f1f5f9','#64748b'];
     const [sbg,sfg] = sc[proj.status] || sc['Not started'];
 
     const allStatuses = [
@@ -7034,16 +7094,11 @@ function shareAllPlansReport() {
   if (selectedTestPlanReleaseDate) title = 'Test Plan — ' + formatDateDisplay(selectedTestPlanReleaseDate);
   if (selectedTestPlanDevPod)      title += ' · ' + selectedTestPlanDevPod;
 
-  const POD_COLORS = {
-    'WinGuardians':['#dbeafe','#1d4ed8'],'Heisenbug':['#dcfce7','#15803d'],
-    'Hydra':['#fce7f3','#9d174d'],'Sentinels':['#fef3c7','#b45309'],
-    'DareDevils':['#fee2e2','#b91c1c'],'Evil Inc.':['#f3e8ff','#7e22ce'],
-  };
 
   const cardsHtml = projects.map(proj => {
     const plan = getTestPlanForProject(proj.id);
     const reviewed = plan.reviewed === true;
-    const podC = POD_COLORS[proj.devPod] || ['#f1f5f9','#475569'];
+    const podC = getPodColor(proj.devPod) || ['#f1f5f9','#475569'];
     const allStatuses = [
       plan.testPrepStatus||'Not yet started',
       plan.testEnvStatus||'Not yet started',
@@ -7154,16 +7209,11 @@ function openAllPlansInTab() {
   if (selectedTestPlanReleaseDate) title = 'Test Plan — ' + formatDateDisplay(selectedTestPlanReleaseDate);
   if (selectedTestPlanDevPod)      title += ' · ' + selectedTestPlanDevPod;
 
-  const POD_COLORS = {
-    'WinGuardians':['#dbeafe','#1d4ed8'],'Heisenbug':['#dcfce7','#15803d'],
-    'Hydra':['#fce7f3','#9d174d'],'Sentinels':['#fef3c7','#b45309'],
-    'DareDevils':['#fee2e2','#b91c1c'],'Evil Inc.':['#f3e8ff','#7e22ce'],
-  };
 
   const cardsHtml = projects.map(proj => {
     const plan = getTestPlanForProject(proj.id);
     const reviewed = plan.reviewed === true;
-    const podC = POD_COLORS[proj.devPod] || ['#f1f5f9','#475569'];
+    const podC = getPodColor(proj.devPod) || ['#f1f5f9','#475569'];
     const allStatuses = [
       plan.testPrepStatus||'Not yet started',
       plan.testEnvStatus||'Not yet started',
@@ -7343,6 +7393,36 @@ function getVMPods() {
   return state.vmPods;
 }
 
+function populateDevPodDropdowns() {
+  const pods = getAllPodNames();
+  const optsPlain = pods.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+
+  const devPodSelect = document.getElementById('devPodSelect');
+  if (devPodSelect) {
+    const cur = devPodSelect.value;
+    devPodSelect.innerHTML = '<option value="">All PODs</option>' + optsPlain;
+    devPodSelect.value = pods.includes(cur) ? cur : '';
+  }
+  const summaryPodSelect = document.getElementById('summaryPodSelect');
+  if (summaryPodSelect) {
+    const cur = summaryPodSelect.value;
+    summaryPodSelect.innerHTML = '<option value="">All PODs</option>' + optsPlain;
+    summaryPodSelect.value = pods.includes(cur) ? cur : '';
+  }
+  const personDevPod = document.getElementById('personDevPod');
+  if (personDevPod) {
+    const cur = personDevPod.value;
+    personDevPod.innerHTML = '<option value="">— No POD —</option>' + optsPlain;
+    personDevPod.value = pods.includes(cur) ? cur : '';
+  }
+  const projDevPod = document.getElementById('projDevPod');
+  if (projDevPod) {
+    const cur = projDevPod.value;
+    projDevPod.innerHTML = '<option value="">— Select POD —</option>' + optsPlain;
+    projDevPod.value = pods.includes(cur) ? cur : '';
+  }
+}
+
 function populateVMPodDropdowns() {
   const pods = getVMPods();
   // Filter dropdown
@@ -7355,6 +7435,82 @@ function populateVMPodDropdowns() {
   // Modal datalist
   const dl = document.getElementById('vmPodList');
   if (dl) dl.innerHTML = pods.map(p => `<option value="${escapeHtml(p)}">`).join('');
+}
+
+function openDevPodsModal() {
+  renderDevPodsListModal();
+  const teamLabel = document.getElementById('devPodsModalTeam');
+  if (teamLabel) teamLabel.textContent = TEAM_NAMES[currentTeamId] || currentTeamId;
+  document.getElementById('devPodsModal').classList.add('show');
+}
+
+function renderDevPodsListModal() {
+  const listEl = document.getElementById('devPodsList');
+  if (!listEl) return;
+  if (devPodsList.length === 0) {
+    listEl.innerHTML = '<div style="color:var(--text-faint); text-align:center; padding:16px; font-style:italic;">No PODs yet for this team. Add one below.</div>';
+    return;
+  }
+  listEl.innerHTML = devPodsList.map((pod) => {
+    const [bg, fg] = getPodColor(pod.name);
+    const peopleCount = (state.people || []).filter(p => p.devPod === pod.name).length;
+    return `
+      <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--panel-2); border:1px solid var(--border-soft); border-radius:10px;">
+        <span style="background:${bg}; color:${fg}; padding:3px 10px; border-radius:6px; font-size:11.5px; font-weight:700; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(pod.name)}</span>
+        <span style="font-size:11px; color:var(--text-faint); white-space:nowrap; flex-shrink:0;">${peopleCount} ${peopleCount === 1 ? 'person' : 'people'}</span>
+        <button onclick="renameDevPodFromModal('${pod.id}')" class="icon-btn edit" title="Rename" style="flex-shrink:0;">✎</button>
+        <button onclick="deleteDevPodFromModal('${pod.id}')" class="icon-btn" title="Delete" style="flex-shrink:0; ${peopleCount > 0 ? 'opacity:0.4; cursor:not-allowed;' : ''}">✕</button>
+      </div>`;
+  }).join('');
+}
+
+async function addDevPodFromModal() {
+  const input = document.getElementById('devNewPodInput');
+  const name = input.value.trim();
+  if (!name) return;
+  const ok = await addDevPod(name);
+  if (ok) {
+    input.value = '';
+    renderDevPodsListModal();
+    populateDevPodDropdowns();
+    showToastMsg(`✓ POD "${name}" added to ${TEAM_NAMES[currentTeamId] || currentTeamId}`);
+  }
+}
+
+async function renameDevPodFromModal(id) {
+  const pod = devPodsList.find(p => p.id === id);
+  if (!pod) return;
+  const newName = prompt(`Rename POD "${pod.name}" to:`, pod.name);
+  if (!newName || newName.trim() === pod.name) return;
+  const trimmed = newName.trim();
+  if (devPodsList.some(p => p.id !== id && p.name.toLowerCase() === trimmed.toLowerCase())) {
+    alert('A POD with that name already exists.'); return;
+  }
+  const oldName = pod.name;
+  const ok = await renameDevPod(id, trimmed);
+  if (ok) {
+    renderDevPodsListModal();
+    populateDevPodDropdowns();
+    renderPeople();
+    showToastMsg(`✓ Renamed "${oldName}" → "${trimmed}"`);
+  }
+}
+
+async function deleteDevPodFromModal(id) {
+  const pod = devPodsList.find(p => p.id === id);
+  if (!pod) return;
+  const peopleCount = (state.people || []).filter(p => p.devPod === pod.name).length;
+  if (peopleCount > 0) {
+    alert(`Cannot delete "${pod.name}" — ${peopleCount} people are assigned to it. Reassign them first.`);
+    return;
+  }
+  if (!confirm(`Delete POD "${pod.name}"?`)) return;
+  const ok = await deleteDevPod(id);
+  if (ok) {
+    renderDevPodsListModal();
+    populateDevPodDropdowns();
+    showToastMsg(`✓ POD "${pod.name}" deleted`);
+  }
 }
 
 function openVMPodsModal() {
@@ -8344,6 +8500,7 @@ function setPersonDailyPlanToggle(val) {
 
 function openPersonModal(id) {
   editingPersonId = id || null;
+  populateDevPodDropdowns();
   const titleEl = document.getElementById('personModalTitle');
   const btnEl = document.getElementById('personSaveBtn');
   if (id) {
@@ -8409,16 +8566,11 @@ function renderPeople() {
   if (state.people.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
   empty.style.display = 'none';
 
-  const POD_COLORS = {
-    'WinGuardians': ['#dbeafe','#1d4ed8'], 'Heisenbug': ['#dcfce7','#15803d'],
-    'Hydra': ['#fce7f3','#9d174d'], 'Sentinels': ['#fef3c7','#b45309'],
-    'DareDevils': ['#fee2e2','#b91c1c'], 'Evil Inc.': ['#f3e8ff','#7e22ce'],
-  };
 
   const TEAM_BADGE_COLORS = { 'agent-qa': ['#f3e8ff','#7e22ce'], 'server-qa': ['#dbeafe','#1d4ed8'] };
 
   tbody.innerHTML = state.people.map(p => {
-    const podC = POD_COLORS[p.devPod] || null;
+    const podC = getPodColor(p.devPod) || null;
     const podCell = podC
       ? `<span style="background:${podC[0]}; color:${podC[1]}; padding:2px 9px; border-radius:5px; font-size:11px; font-weight:600;">${escapeHtml(p.devPod)}</span>`
       : '<span style="color:var(--text-faint);">—</span>';
@@ -8478,6 +8630,7 @@ function openProjectModal(id) {
   const btnEl = document.getElementById('projectSaveBtn');
   populateGoAheadBySelect('');
   populateQaLeadSelect('');
+  populateDevPodDropdowns();
 
   if (id) {
     const proj = state.projects.find(p => p.id === id);
@@ -11093,11 +11246,6 @@ async function exportSummaryReport() {
     ? `Release Summary — ${formatDateDisplay(selectedSummaryReleaseDate)}${selectedSummaryDevPod ? ` · ${selectedSummaryDevPod}` : ''}`
     : selectedSummaryDevPod ? `Release Summary — ${selectedSummaryDevPod}` : 'Release Summary — All Releases';
 
-  const POD_COLORS_RPT = {
-    'WinGuardians':['#dbeafe','#1d4ed8'],'Heisenbug':['#dcfce7','#15803d'],
-    'Hydra':['#fce7f3','#9d174d'],'Sentinels':['#fef3c7','#b45309'],
-    'DareDevils':['#fee2e2','#b91c1c'],'Evil Inc.':['#f3e8ff','#7e22ce'],
-  };
 
   const rowsHtml = projects.map(proj => {
     // Working on it — grouped by Lead / QA
@@ -11142,7 +11290,7 @@ async function exportSummaryReport() {
         <td style="padding:8px 10px; font-weight:600; color:#0f172a; font-size:12px; white-space:nowrap;">${escapeHtml(proj.name)}</td>
         <td style="padding:8px 10px; white-space:nowrap;">${proj.component ? `<span style="background:#f0fdf4;color:#15803d;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;">${escapeHtml(proj.component)}</span>` : '<span style="color:#94a3b8;">—</span>'}</td>
         <td style="padding:8px 10px; white-space:nowrap;">${jiraCell}</td>
-        <td style="padding:8px 10px; white-space:nowrap;">${proj.devPod ? `<span style="background:${(POD_COLORS_RPT[proj.devPod]||['#f1f5f9','#475569'])[0]};color:${(POD_COLORS_RPT[proj.devPod]||['#f1f5f9','#475569'])[1]};padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;">${escapeHtml(proj.devPod)}</span>` : '<span style="color:#94a3b8;">—</span>'}</td>
+        <td style="padding:8px 10px; white-space:nowrap;">${proj.devPod ? `<span style="background:${(getPodColor(proj.devPod)||['#f1f5f9','#475569'])[0]};color:${(getPodColor(proj.devPod)||['#f1f5f9','#475569'])[1]};padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;">${escapeHtml(proj.devPod)}</span>` : '<span style="color:#94a3b8;">—</span>'}</td>
         <td style="padding:8px 10px; text-align:center; white-space:nowrap;">${buildDelayBadgeReport(proj.plannedBuildDate || proj.buildDate, proj.actualBuildDate)}</td>
         <td style="padding:8px 10px; text-align:center; white-space:nowrap;">
           ${proj.effort ? `<span style="font-weight:700; color:#1e3a8a; font-size:15px;">${proj.effort}</span><span style="font-size:11px; color:#94a3b8; margin-left:3px;">PDs</span>` : '<span style="color:#94a3b8;">—</span>'}
@@ -11285,14 +11433,6 @@ function renderProjects() {
   const addBtn = document.getElementById('addReleaseBtn');
   if (addBtn) addBtn.style.display = canEdit('projects') ? '' : 'none';
 
-  const POD_COLORS = {
-    'WinGuardians': ['#dbeafe','#1d4ed8'],
-    'Heisenbug':    ['#dcfce7','#15803d'],
-    'Hydra':        ['#fce7f3','#9d174d'],
-    'Sentinels':    ['#fef3c7','#b45309'],
-    'DareDevils':   ['#fee2e2','#b91c1c'],
-    'Evil Inc.':    ['#f3e8ff','#7e22ce'],
-  };
 
   // Populate Release/GA date dropdown
   const dateSelect = document.getElementById('releaseDateSelect');
@@ -11351,7 +11491,7 @@ function renderProjects() {
           ? `<a href="${escapeHtml(p.jiraUrl)}" target="_blank" style="display:inline-flex; align-items:center; gap:4px; background:#dbeafe; color:#1d4ed8; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:600; text-decoration:none;">🎫 ${jiraId}</a>`
           : `<span style="background:#dbeafe; color:#1d4ed8; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:600;">🎫 ${jiraId}</span>`)
       : '<span style="color:var(--text-faint);">—</span>';
-    const podColors = POD_COLORS[p.devPod] || ['#f1f5f9','#475569'];
+    const podColors = getPodColor(p.devPod) || ['#f1f5f9','#475569'];
     const [pbg, pfg] = podColors;
     const podCell = p.devPod
       ? `<span style="background:${pbg}; color:${pfg}; padding:3px 9px; border-radius:6px; font-size:11px; font-weight:600; white-space:nowrap;">${escapeHtml(p.devPod)}</span>`
@@ -11574,15 +11714,7 @@ function setSummaryDevPodFilter(pod) {
 function renderPodPills(containerId, selectedPod, onClickFn) {
   const el = document.getElementById(containerId);
   if (!el) return;
-  const POD_COLORS = {
-    'WinGuardians': ['#dbeafe','#1d4ed8'],
-    'Heisenbug':    ['#dcfce7','#15803d'],
-    'Hydra':        ['#fce7f3','#9d174d'],
-    'Sentinels':    ['#fef3c7','#b45309'],
-    'DareDevils':   ['#fee2e2','#b91c1c'],
-    'Evil Inc.':    ['#f3e8ff','#7e22ce'],
-  };
-  const ALL_PODS = ['WinGuardians','Heisenbug','Hydra','Sentinels','DareDevils','Evil Inc.'];
+  const ALL_PODS = getAllPodNames();
   const usedPods = [...new Set(state.projects.map(p => p.devPod).filter(Boolean))];
   if (usedPods.length === 0) {
     el.innerHTML = '<span style="font-size:11px; color:var(--text-faint); font-style:italic;">No PODs assigned yet</span>';
@@ -11591,7 +11723,7 @@ function renderPodPills(containerId, selectedPod, onClickFn) {
   el.innerHTML =
     `<button onclick="${onClickFn}(null)" style="padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer; border:1.5px solid; transition:all 0.12s; ${selectedPod === null ? 'background:#0f172a; color:white; border-color:#0f172a;' : 'background:#f1f5f9; color:#64748b; border-color:#e2e8f0;'}">All</button>` +
     ALL_PODS.filter(pod => usedPods.includes(pod)).map(pod => {
-      const [bg, fg] = POD_COLORS[pod] || ['#f1f5f9','#475569'];
+      const [bg, fg] = getPodColor(pod) || ['#f1f5f9','#475569'];
       const isActive = selectedPod === pod;
       return `<button onclick="${onClickFn}('${pod}')" style="padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer; border:1.5px solid; white-space:nowrap; transition:all 0.12s; ${isActive ? `background:${fg}; color:white; border-color:${fg};` : `background:${bg}; color:${fg}; border-color:${bg};`}">${pod}</button>`;
     }).join('');
@@ -12143,14 +12275,6 @@ function renderReleaseCalendar() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = toDateKey(new Date());
 
-  const POD_COLORS_CAL = {
-    'WinGuardians': ['#dbeafe','#1d4ed8'],
-    'Heisenbug':    ['#dcfce7','#15803d'],
-    'Hydra':        ['#fce7f3','#9d174d'],
-    'Sentinels':    ['#fef3c7','#b45309'],
-    'DareDevils':   ['#fee2e2','#b91c1c'],
-    'Evil Inc.':    ['#f3e8ff','#7e22ce'],
-  };
 
   const projects = state.projects.filter(p => p.status !== 'Completed' ||
     (p.releaseDate && p.releaseDate.startsWith(`${year}-${String(month+1).padStart(2,'0')}`)));
@@ -12205,7 +12329,7 @@ function renderReleaseCalendar() {
     const goAhead      = proj.goAheadDate || '';
     const qaCompletion = proj.completionDate || '';
     const releaseDate  = proj.releaseDate || '';
-    const [cbg, cfg]   = POD_COLORS_CAL[proj.devPod] || ['#f1f5f9','#475569'];
+    const [cbg, cfg]   = getPodColor(proj.devPod) || ['#f1f5f9','#475569'];
 
     html += `<tr>
       <td style="padding:6px 10px;border:0.5px solid var(--border-soft);background:var(--panel);font-size:11.5px;">
@@ -12684,16 +12808,11 @@ function renderArchive() {
   const startIdx = (archivePage - 1) * ARCHIVE_PAGE_SIZE;
   const pageItems = sorted.slice(startIdx, startIdx + ARCHIVE_PAGE_SIZE);
 
-  const POD_COLORS = {
-    'WinGuardians':['#dbeafe','#1d4ed8'],'Heisenbug':['#dcfce7','#15803d'],
-    'Hydra':['#fce7f3','#9d174d'],'Sentinels':['#fef3c7','#b45309'],
-    'DareDevils':['#fee2e2','#b91c1c'],'Evil Inc.':['#f3e8ff','#7e22ce'],
-  };
   const ec = {'Not yet started':'#f1f5f9:#64748b','In progress':'#fef3c7:#b45309','Done':'#dcfce7:#15803d'};
 
   content.innerHTML = pageItems.map((proj, idx) => {
     const plan = getTestPlanForProject(proj.id);
-    const podC = POD_COLORS[proj.devPod] || ['#f1f5f9','#64748b'];
+    const podC = getPodColor(proj.devPod) || ['#f1f5f9','#64748b'];
 
     // Progress
     const allStatuses = [
@@ -12946,16 +13065,11 @@ async function downloadArchiveReport() {
 
 function buildArchiveReportHtml(title, items, notesMap = {}) {
   const generatedOn = new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
-  const POD_COLORS = {
-    'WinGuardians':['#dbeafe','#1d4ed8'],'Heisenbug':['#dcfce7','#15803d'],
-    'Hydra':['#fce7f3','#9d174d'],'Sentinels':['#fef3c7','#b45309'],
-    'DareDevils':['#fee2e2','#b91c1c'],'Evil Inc.':['#f3e8ff','#7e22ce'],
-  };
   const ec = {'Not yet started':'#f1f5f9:#64748b','In progress':'#fef3c7:#b45309','Done':'#dcfce7:#15803d'};
 
   const cardsHtml = items.map(proj => {
     const plan = getTestPlanForProject(proj.id);
-    const podC = POD_COLORS[proj.devPod] || ['#f1f5f9','#64748b'];
+    const podC = getPodColor(proj.devPod) || ['#f1f5f9','#64748b'];
     const allStatuses = [
       plan.testPrepStatus||'Not yet started',
       plan.testEnvStatus||'Not yet started',
@@ -13112,11 +13226,6 @@ function renderSummary() {
     return;
   }
 
-  const POD_COLORS = {
-    'WinGuardians': ['#dbeafe','#1d4ed8'], 'Heisenbug': ['#dcfce7','#15803d'],
-    'Hydra': ['#fce7f3','#9d174d'], 'Sentinels': ['#fef3c7','#b45309'],
-    'DareDevils': ['#fee2e2','#b91c1c'], 'Evil Inc.': ['#f3e8ff','#7e22ce'],
-  };
 
   // Pagination
   const totalItems = projects.length;
@@ -13153,7 +13262,7 @@ function renderSummary() {
           : `<span style="background:#dbeafe; color:#1d4ed8; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:600;">🎫 ${jiraId}</span>`)
       : '<span style="color:var(--text-faint);">—</span>';
 
-    const podC = POD_COLORS[proj.devPod] || ['#f1f5f9','#475569'];
+    const podC = getPodColor(proj.devPod) || ['#f1f5f9','#475569'];
     const podCell = proj.devPod
       ? `<span style="background:${podC[0]}; color:${podC[1]}; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:600; white-space:nowrap;">${escapeHtml(proj.devPod)}</span>`
       : '<span style="color:var(--text-faint);">—</span>';
@@ -14011,12 +14120,7 @@ function renderDailyPlan() {
   const podPillsEl = document.getElementById('dailyPlanPodPills');
 
   // Dev POD pills — only show PODs that exist in people
-  const POD_COLORS = {
-    'WinGuardians': ['#dbeafe','#1d4ed8'], 'Heisenbug': ['#dcfce7','#15803d'],
-    'Hydra': ['#fce7f3','#9d174d'], 'Sentinels': ['#fef3c7','#b45309'],
-    'DareDevils': ['#fee2e2','#b91c1c'], 'Evil Inc.': ['#f3e8ff','#7e22ce'],
-  };
-  const ALL_PODS = ['WinGuardians','Heisenbug','Hydra','Sentinels','DareDevils','Evil Inc.'];
+  const ALL_PODS = getAllPodNames();
   const usedPods = [...new Set(state.people.map(p => p.devPod).filter(Boolean))];
 
   if (podPillsEl) {
@@ -14026,7 +14130,7 @@ function renderDailyPlan() {
       podPillsEl.innerHTML =
         `<button onclick="setDailyPlanPodFilter(null)" style="padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer; border:1.5px solid; transition:all 0.12s; ${selectedDailyPlanPods.length === 0 ? 'background:#0f172a; color:white; border-color:#0f172a;' : 'background:#f1f5f9; color:#64748b; border-color:#e2e8f0;'}">All</button>` +
         ALL_PODS.filter(pod => usedPods.includes(pod)).map(pod => {
-          const [bg, fg] = POD_COLORS[pod] || ['#f1f5f9','#475569'];
+          const [bg, fg] = getPodColor(pod) || ['#f1f5f9','#475569'];
           const isActive = selectedDailyPlanPods.includes(pod);
           return `<button onclick="setDailyPlanPodFilter('${pod}')" style="padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer; border:1.5px solid; white-space:nowrap; transition:all 0.12s; ${isActive ? `background:${fg}; color:white; border-color:${fg};` : `background:${bg}; color:${fg}; border-color:${bg};`}">${isActive ? '✓ ' : ''}${pod}</button>`;
         }).join('');
@@ -14115,7 +14219,7 @@ function renderDailyPlan() {
   html += `<div class="cal-cell cal-header" style="position:sticky;left:${COL_DATE}px;z-index:10;">Day</div>`;
   filteredPeople.forEach(p => {
     const initials = p.name.trim().split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-    const podC = POD_COLORS[p.devPod];
+    const podC = getPodColor(p.devPod);
     html += `<div class="cal-cell cal-header" style="text-align:left;padding:6px 8px;">
       <div style="display:flex;align-items:center;gap:6px;">
         <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#7c3aed,#a855f7);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;flex-shrink:0;">${initials}</div>
