@@ -2200,6 +2200,17 @@
             <option value="admin">Admin</option>
           </select>
         </div>
+        <div class="field" style="margin:0; flex:1; min-width:170px;">
+          <label>Team access</label>
+          <div style="display:flex; gap:10px; align-items:center; height:36px;">
+            <label style="display:flex; align-items:center; gap:5px; font-size:12px; font-weight:500; cursor:pointer;">
+              <input type="checkbox" id="adminNewTeamAgent" checked style="width:auto;"> Agent QA
+            </label>
+            <label style="display:flex; align-items:center; gap:5px; font-size:12px; font-weight:500; cursor:pointer;">
+              <input type="checkbox" id="adminNewTeamServer" style="width:auto;"> Server QA
+            </label>
+          </div>
+        </div>
         <button class="action" style="margin-bottom:0;" onclick="adminCreateUser()">Create user</button>
       </div>
       <div id="adminLinkFallback" style="display:none; gap:8px; margin-top:10px; align-items:center; background:var(--panel-2); padding:10px; border-radius:6px; font-size:12px;">
@@ -2225,6 +2236,7 @@
             <tr>
               <th style="min-width:180px;">Email</th>
               <th>Role</th>
+              <th style="white-space:nowrap;">Teams</th>
               <th>People</th>
               <th>Release</th>
               <th>Test plan</th>
@@ -5370,12 +5382,16 @@ async function adminCreateUser() {
   const email = document.getElementById('adminNewEmail').value.trim().toLowerCase();
   const password = document.getElementById('adminNewPassword').value;
   const role = document.getElementById('adminNewRole').value;
+  const teamIds = [];
+  if (document.getElementById('adminNewTeamAgent')?.checked) teamIds.push('agent-qa');
+  if (document.getElementById('adminNewTeamServer')?.checked) teamIds.push('server-qa');
   const errEl = document.getElementById('adminError');
   const successEl = document.getElementById('adminSuccess');
   errEl.textContent = '';
   successEl.textContent = '';
   if (!email) { errEl.textContent = 'Please enter an email address.'; return; }
   if (!password || password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+  if (teamIds.length === 0) { errEl.textContent = 'Please select at least one team.'; return; }
   if (allUserRoles.find(r => r.email && r.email.toLowerCase() === email)) {
     errEl.textContent = 'This user already exists. Edit their permissions below.'; return;
   }
@@ -5401,6 +5417,12 @@ async function adminCreateUser() {
     if (res.ok) {
       const result = await res.json();
       if (result.error) throw new Error(result.error);
+      // Step 2: Set the selected team access on the row the Edge Function just created
+      try {
+        await sbClient.from('user_roles').update({ team_ids: teamIds }).eq('email', email);
+      } catch (teamErr) {
+        console.warn('Could not set team_ids for new user:', teamErr);
+      }
       successEl.textContent = `✓ User ${email} created with ${role} access.`;
       document.getElementById('adminNewEmail').value = '';
       document.getElementById('adminNewPassword').value = '';
@@ -5434,16 +5456,20 @@ async function adminCreateUser() {
 async function adminLinkExistingUser() {
   const email = document.getElementById('adminNewEmail').value.trim().toLowerCase();
   const role = document.getElementById('adminNewRole').value;
+  const teamIds = [];
+  if (document.getElementById('adminNewTeamAgent')?.checked) teamIds.push('agent-qa');
+  if (document.getElementById('adminNewTeamServer')?.checked) teamIds.push('server-qa');
   const errEl = document.getElementById('adminError');
   const successEl = document.getElementById('adminSuccess');
   errEl.textContent = '';
   successEl.textContent = '';
   if (!email) { errEl.textContent = 'Please enter the email address.'; return; }
+  if (teamIds.length === 0) { errEl.textContent = 'Please select at least one team.'; return; }
 
   const perms = buildDefaultPermsForRole(role);
   try {
     const { error } = await sbClient.from('user_roles').insert({
-      user_id: null, email, role, permissions: perms
+      user_id: null, email, role, permissions: perms, team_ids: teamIds
     });
     if (error) throw error;
     successEl.textContent = `✓ Access granted to ${email}. They can now log in with ${role} access.`;
@@ -5477,6 +5503,26 @@ async function adminUpdatePermission(rowId, section, value) {
   } catch (e) {
     console.error('updatePermission failed', e);
     showToastMsg('✗ Failed to save permission');
+  }
+}
+
+async function adminUpdateUserTeams(rowId) {
+  const checkboxes = document.querySelectorAll(`input[data-team-cb="${rowId}"]`);
+  const teamIds = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.dataset.team);
+  if (teamIds.length === 0) {
+    showToastMsg('❌ A user must have access to at least one team');
+    renderAdminPanel();
+    return;
+  }
+  try {
+    const { error } = await sbClient.from('user_roles').update({ team_ids: teamIds }).eq('id', rowId);
+    if (error) throw error;
+    const ur = allUserRoles.find(r => r.id === rowId);
+    if (ur) ur.team_ids = teamIds;
+    showToastMsg(`✓ Team access updated for ${ur?.email?.split('@')[0]}`);
+  } catch (e) {
+    console.error('adminUpdateUserTeams failed', e);
+    showToastMsg('❌ Could not update team access');
   }
 }
 
@@ -5690,6 +5736,19 @@ function renderAdminPanel() {
         </select>
       </td>`).join('');
 
+    const userTeamIds = Array.isArray(ur.team_ids) && ur.team_ids.length > 0 ? ur.team_ids : ['agent-qa'];
+    const teamsCell = `
+      <td style="text-align:center; white-space:nowrap;">
+        <label style="font-size:10.5px; margin-right:6px; cursor:${isMe ? 'not-allowed' : 'pointer'};">
+          <input type="checkbox" ${userTeamIds.includes('agent-qa') ? 'checked' : ''} ${isMe ? 'disabled' : ''}
+            onchange="adminUpdateUserTeams('${rowId}')" data-team-cb="${rowId}" data-team="agent-qa" style="width:auto;"> Agent
+        </label>
+        <label style="font-size:10.5px; cursor:${isMe ? 'not-allowed' : 'pointer'};">
+          <input type="checkbox" ${userTeamIds.includes('server-qa') ? 'checked' : ''} ${isMe ? 'disabled' : ''}
+            onchange="adminUpdateUserTeams('${rowId}')" data-team-cb="${rowId}" data-team="server-qa" style="width:auto;"> Server
+        </label>
+      </td>`;
+
     // Copy permissions from another user dropdown
     const otherUsers = allUserRoles.filter(u => u.id !== rowId && u.role !== 'admin');
     const copyFromCell = isMe || ur.role === 'admin' ? '<td>—</td>' : `
@@ -5712,6 +5771,7 @@ function renderAdminPanel() {
             <option value="member" ${ur.role === 'member' ? 'selected' : ''}>Member</option>
           </select>
         </td>
+        ${teamsCell}
         ${permCells}
         ${copyFromCell}
         <td style="text-align:center;">
