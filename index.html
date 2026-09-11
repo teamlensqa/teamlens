@@ -1429,16 +1429,18 @@
 
       <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px; background:var(--panel-2); border-radius:10px; padding:10px 12px;">
         <span style="font-size:11px; color:var(--text-faint); font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Filter:</span>
-        <select id="ebrComponentFilter" onchange="renderEngBuildReport()" style="font-size:12px; padding:6px 10px;">
+        <select id="ebrComponentFilter" onchange="renderEngBuildReport()" style="font-size:12px; padding:6px 10px; width:auto;">
           <option value="">All components</option>
         </select>
         <div id="ebrPeriodPills" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
-        <span style="width:1px; height:20px; background:var(--border);"></span>
-        <label style="font-size:11px; color:var(--text-faint); font-weight:600;">GA date:</label>
-        <input type="date" id="ebrGaFrom" onchange="setEngBuildPeriod('custom')" style="font-size:12px; padding:5px 8px;">
-        <span style="font-size:11px; color:var(--text-faint);">to</span>
-        <input type="date" id="ebrGaTo" onchange="setEngBuildPeriod('custom')" style="font-size:12px; padding:5px 8px;">
-        <button class="ghost" onclick="document.getElementById('ebrGaFrom').value='';document.getElementById('ebrGaTo').value='';setEngBuildPeriod('all');" style="font-size:11px; padding:5px 10px;">Clear dates</button>
+        <span style="width:1px; height:20px; background:var(--border); flex-shrink:0;"></span>
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:nowrap;">
+          <label style="font-size:11px; color:var(--text-dim); font-weight:700; white-space:nowrap;">GA date:</label>
+          <input type="date" id="ebrGaFrom" onchange="setEngBuildPeriod('custom')" style="font-size:12px; padding:5px 8px; width:150px;">
+          <span style="font-size:11px; color:var(--text-faint);">to</span>
+          <input type="date" id="ebrGaTo" onchange="setEngBuildPeriod('custom')" style="font-size:12px; padding:5px 8px; width:150px;">
+          <button class="ghost" onclick="document.getElementById('ebrGaFrom').value='';document.getElementById('ebrGaTo').value='';setEngBuildPeriod('all');" style="font-size:11px; padding:5px 10px; white-space:nowrap;">Clear dates</button>
+        </div>
       </div>
 
       <div class="grid-4" id="ebrSummaryCards" style="margin-bottom:16px;"></div>
@@ -14086,6 +14088,15 @@ function renderEngBuildReport() {
         '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + (e.unplannedBuilds||0) + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;' + (bvtVal>0?'color:#dc2626;font-weight:700;':'') + '">' + bvtVal + '</td>' +
         '<td style="padding:8px 6px;">' + (tags || '<span style="color:var(--text-faint);">—</span>') + '</td>' +
+        '<td style="padding:8px 6px;max-width:260px;">' + ((e.reason || e.comments) ?
+          '<details style="cursor:pointer;">' +
+            '<summary style="font-size:11.5px;font-weight:600;color:#b45309;list-style:none;display:inline-flex;align-items:center;gap:4px;">📝 Notes</summary>' +
+            '<div style="margin-top:6px;font-size:12px;color:var(--text-dim);white-space:pre-wrap;line-height:1.5;background:var(--panel-2);border-radius:8px;padding:8px 10px;">' +
+              (e.reason ? '<div style="margin-bottom:6px;"><strong style="color:var(--text);">Reason:</strong> ' + escapeHtml(e.reason) + '</div>' : '') +
+              (e.comments ? '<div><strong style="color:var(--text);">Comments:</strong> ' + escapeHtml(e.comments) + '</div>' : '') +
+            '</div>' +
+          '</details>'
+          : '<span style="color:var(--text-faint);">—</span>') + '</td>' +
         '<td style="padding:8px 6px;text-align:right;white-space:nowrap;">' + editBtns + '</td>' +
       '</tr>';
     }).join('');
@@ -14103,7 +14114,7 @@ function renderEngBuildReport() {
         '<span id="' + accId + '-ch" style="font-size:11px;color:var(--text-faint);">▼</span>' +
       '</div>' +
       '<div id="' + accId + '" style="display:none;padding:0 16px 14px;overflow-x:auto;">' +
-        '<table style="width:100%;min-width:640px;border-collapse:collapse;">' +
+        '<table style="width:100%;min-width:760px;border-collapse:collapse;">' +
           '<thead><tr>' +
             '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">GA date</th>' +
             '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Version</th>' +
@@ -14111,6 +14122,7 @@ function renderEngBuildReport() {
             '<th style="text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Unplanned</th>' +
             '<th style="text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">BVT failed</th>' +
             '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Tagged release items</th>' +
+            '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Notes</th>' +
             '<th></th>' +
           '</tr></thead>' +
           '<tbody>' + rowsHtml + '</tbody>' +
