@@ -7369,6 +7369,13 @@ function toggleVMInUseRow(id) {
   if (vm.inUse && vm.endDate && vm.endDate < toDateKey(new Date())) {
     vm.endDate = '';
   }
+  // A fresh usage period starts today — keeps the Start Date column
+  // accurate instead of showing a stale date from a previous booking.
+  // The user can still change it to any date (including a future one)
+  // via the edit modal.
+  if (vm.inUse) {
+    vm.startDate = toDateKey(new Date());
+  }
   saveVMRecord(vm);
   renderVMRepo();
 }
