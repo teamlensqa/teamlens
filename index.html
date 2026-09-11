@@ -1179,7 +1179,7 @@
         <button class="action" onclick="openPersonModal()">+ Add person</button>
       </div>
       <table>
-        <thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Dev POD</th><th>Daily Plan</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Team</th><th>Dev POD</th><th>Daily Plan</th><th></th></tr></thead>
         <tbody id="peopleTableBody"></tbody>
       </table>
       <div class="empty-state" id="peopleEmpty" style="display:none;">No people added yet. Click "Add person" to start.</div>
@@ -8415,11 +8415,15 @@ function renderPeople() {
     'DareDevils': ['#fee2e2','#b91c1c'], 'Evil Inc.': ['#f3e8ff','#7e22ce'],
   };
 
+  const TEAM_BADGE_COLORS = { 'agent-qa': ['#f3e8ff','#7e22ce'], 'server-qa': ['#dbeafe','#1d4ed8'] };
+
   tbody.innerHTML = state.people.map(p => {
     const podC = POD_COLORS[p.devPod] || null;
     const podCell = podC
       ? `<span style="background:${podC[0]}; color:${podC[1]}; padding:2px 9px; border-radius:5px; font-size:11px; font-weight:600;">${escapeHtml(p.devPod)}</span>`
       : '<span style="color:var(--text-faint);">—</span>';
+    const teamC = TEAM_BADGE_COLORS[currentTeamId] || ['var(--panel-2)','var(--text-dim)'];
+    const teamCell = `<span style="background:${teamC[0]}; color:${teamC[1]}; padding:2px 9px; border-radius:5px; font-size:11px; font-weight:600;">🏷️ ${escapeHtml(TEAM_NAMES[currentTeamId] || currentTeamId)}</span>`;
     const inDailyPlan = p.showInDailyPlan !== false;
     const dpBadge = inDailyPlan
       ? `<span style="background:#dcfce7; color:#15803d; padding:2px 9px; border-radius:5px; font-size:11px; font-weight:600;">✓ Yes</span>`
@@ -8429,6 +8433,7 @@ function renderPeople() {
       <td style="font-weight:500;">${escapeHtml(p.name)}</td>
       <td style="color:var(--text-dim)">${escapeHtml(p.title || '—')}</td>
       <td style="color:var(--text-dim)">${escapeHtml(p.email || '—')}</td>
+      <td>${teamCell}</td>
       <td>${podCell}</td>
       <td>${dpBadge}</td>
       <td style="text-align:right; white-space:nowrap;">
