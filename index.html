@@ -879,7 +879,18 @@
     </div>
   </div>
   </div>
-</div><!-- Change Password Modal -->
+</div>
+
+<!-- Team Selection Screen (shown only to multi-team users after login) -->
+<div id="teamSelectOverlay" style="display:none; position:fixed; inset:0; z-index:9999; background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%); align-items:center; justify-content:center;">
+  <div style="text-align:center; max-width:520px; padding:32px;">
+    <div style="width:56px; height:56px; border-radius:16px; background:linear-gradient(135deg,#7c3aed,#2563eb); display:flex; align-items:center; justify-content:center; font-size:26px; margin:0 auto 20px; box-shadow:0 8px 24px rgba(124,58,237,0.4);">🏷️</div>
+    <h2 style="color:white; font-size:22px; font-weight:800; margin-bottom:8px;">Which team are you working in?</h2>
+    <p style="color:rgba(255,255,255,0.5); font-size:13px; margin-bottom:28px;">You can switch teams anytime from the sidebar.</p>
+    <div id="teamSelectButtons" style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap;"></div>
+  </div>
+</div>
+<!-- Change Password Modal -->
 <div class="modal-overlay" id="changePasswordModal">
   <div class="modal">
     <h3>🔒 Change password</h3>
@@ -936,6 +947,9 @@
         @keyframes bellGlow { 0%,100%{box-shadow:0 4px 14px rgba(124,58,237,0.4)} 50%{box-shadow:0 4px 20px rgba(239,68,68,0.6),0 0 0 4px rgba(239,68,68,0.1)} }
       </style>
     </div>
+
+    <!-- Team Switcher -->
+    <div id="teamSwitcherWrap" style="padding:0 10px 10px;"></div>
 
     <!-- Notification Panel -->
     <div id="notificationPanel" style="display:none;position:fixed;top:0;right:0;width:300px;height:100vh;background:#1e293b;border-left:1px solid #334155;z-index:400;box-shadow:-4px 0 20px rgba(0,0,0,0.3);flex-direction:column;">
@@ -3964,6 +3978,11 @@ let currentUserEmail = null;
 let allUserRoles = [];
 let appInitialized = false;
 
+// ---------- Team Split ----------
+let currentUserTeamIds = ['agent-qa']; // teams this user belongs to
+let currentTeamId = null;              // the ACTIVE team for this session
+const TEAM_NAMES = { 'agent-qa': 'Agent QA', 'server-qa': 'Server QA' };
+
 const DEFAULT_PERMISSIONS = {
   people: 'read', projects: 'read', testplan: 'read',
   dailyplan: 'read', buildreport: 'read', allocation: 'read', capacity: 'read',
@@ -4079,7 +4098,7 @@ async function fetchUserRole(userId) {
     // Try by user_id first
     let { data } = await sbClient
       .from('user_roles')
-      .select('id, role, permissions, email')
+      .select('id, role, permissions, email, team_ids')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -4089,7 +4108,7 @@ async function fetchUserRole(userId) {
     if (!data && currentUserEmail) {
       const res = await sbClient
         .from('user_roles')
-        .select('id, role, permissions, email')
+        .select('id, role, permissions, email, team_ids')
         .eq('email', currentUserEmail.toLowerCase())
         .maybeSingle();
 
@@ -4107,17 +4126,98 @@ async function fetchUserRole(userId) {
 
     currentUserRole = (data && data.role) ? data.role : 'member';
     currentUserPermissions = (data && data.permissions) ? data.permissions : { ...DEFAULT_PERMISSIONS };
-    console.log('Role loaded:', currentUserRole, '| Permissions:', currentUserPermissions);
+    currentUserTeamIds = (data && Array.isArray(data.team_ids) && data.team_ids.length > 0) ? data.team_ids : ['agent-qa'];
+    console.log('Role loaded:', currentUserRole, '| Permissions:', currentUserPermissions, '| Teams:', currentUserTeamIds);
     // Start listening for permission changes on this user\'s row
     if (data?.id) initPermissionRealtime(data.id);
   } catch (e) {
     console.warn('fetchUserRole exception:', e.message);
     currentUserRole = 'member';
     currentUserPermissions = { ...DEFAULT_PERMISSIONS };
+    currentUserTeamIds = ['agent-qa'];
   }
 }
 
 // Single entry point — called once after login or session restore
+function renderTeamSwitcher() {
+  const wrap = document.getElementById('teamSwitcherWrap');
+  if (!wrap || !currentTeamId) return;
+  const teamName = TEAM_NAMES[currentTeamId] || currentTeamId;
+  if (currentUserTeamIds.length <= 1) {
+    wrap.innerHTML = `<div style="display:flex;align-items:center;gap:6px;padding:7px 10px;background:rgba(124,58,237,0.12);border-radius:9px;font-size:11.5px;font-weight:700;color:#a78bfa;">🏷️ ${escapeHtml(teamName)}</div>`;
+  } else {
+    wrap.innerHTML = `
+      <div style="position:relative;">
+        <button onclick="toggleTeamSwitcherMenu()" id="teamSwitcherBtn" style="display:flex;align-items:center;gap:6px;width:100%;padding:7px 10px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);border-radius:9px;font-size:11.5px;font-weight:700;color:#a78bfa;cursor:pointer;font-family:inherit;">
+          🏷️ ${escapeHtml(teamName)} <span style="margin-left:auto;font-size:9px;">▾</span>
+        </button>
+        <div id="teamSwitcherMenu" style="display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;background:var(--panel);border:1px solid var(--border);border-radius:9px;box-shadow:0 4px 16px rgba(0,0,0,0.2);z-index:50;overflow:hidden;">
+          ${currentUserTeamIds.map(tid => `<button onclick="switchActiveTeam('${tid}')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:${tid===currentTeamId?'rgba(124,58,237,0.15)':'none'};border:none;cursor:pointer;font-size:12px;color:var(--text);font-family:inherit;">${tid===currentTeamId?'✓ ':''}${escapeHtml(TEAM_NAMES[tid]||tid)}</button>`).join('')}
+        </div>
+      </div>`;
+  }
+}
+
+function toggleTeamSwitcherMenu() {
+  const m = document.getElementById('teamSwitcherMenu');
+  if (m) m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+}
+
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('teamSwitcherWrap');
+  const menu = document.getElementById('teamSwitcherMenu');
+  if (menu && wrap && !wrap.contains(e.target)) menu.style.display = 'none';
+});
+
+async function switchActiveTeam(tid) {
+  if (tid === currentTeamId) { toggleTeamSwitcherMenu(); return; }
+  currentTeamId = tid;
+  localStorage.setItem('tl_active_team', tid);
+  renderTeamSwitcher();
+  showToastMsg('🔄 Switched to ' + (TEAM_NAMES[tid] || tid));
+  // NOTE: per-tab data filtering by team is wired up in a later step —
+  // for now this just switches the active team context.
+  markAllDirty();
+  clearRenderCache();
+  renderTab(_activeTab);
+}
+
+function determineActiveTeam() {
+  return new Promise((resolve) => {
+    if (currentUserTeamIds.length <= 1) {
+      currentTeamId = currentUserTeamIds[0] || 'agent-qa';
+      resolve();
+      return;
+    }
+    // Multi-team — reuse the last remembered choice if it's still valid
+    const remembered = localStorage.getItem('tl_active_team');
+    if (remembered && currentUserTeamIds.includes(remembered)) {
+      currentTeamId = remembered;
+      resolve();
+      return;
+    }
+    // Otherwise show the selection screen and wait for the user to pick
+    const overlay = document.getElementById('teamSelectOverlay');
+    const buttonsEl = document.getElementById('teamSelectButtons');
+    if (!overlay || !buttonsEl) { currentTeamId = currentUserTeamIds[0]; resolve(); return; }
+    buttonsEl.innerHTML = currentUserTeamIds.map(tid => `
+      <button onclick="window._resolveTeamSelect('${tid}')"
+        style="padding:16px 28px;border-radius:14px;border:1.5px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:white;font-size:15px;font-weight:700;cursor:pointer;transition:all 0.15s;min-width:150px;font-family:inherit;"
+        onmouseenter="this.style.background='rgba(124,58,237,0.25)';this.style.borderColor='#7c3aed';"
+        onmouseleave="this.style.background='rgba(255,255,255,0.05)';this.style.borderColor='rgba(255,255,255,0.15)';">
+        🏷️ ${TEAM_NAMES[tid] || tid}
+      </button>
+    `).join('');
+    overlay.style.display = 'flex';
+    window._resolveTeamSelect = (tid) => {
+      currentTeamId = tid;
+      localStorage.setItem('tl_active_team', tid);
+      overlay.style.display = 'none';
+      resolve();
+    };
+  });
+}
+
 async function initApp(user) {
   if (appInitialized) return;
   appInitialized = true;
@@ -4167,6 +4267,8 @@ async function initApp(user) {
   // Now load data in background
   try {
     await fetchUserRole(user.id);
+    await determineActiveTeam();
+    renderTeamSwitcher();
     await loadState();
     if (currentUserRole === 'admin') await fetchAllUserRoles();
     seedVMData();
