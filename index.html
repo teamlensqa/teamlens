@@ -2847,6 +2847,7 @@ async function saveRelease(proj) {
     await sbClient.from('releases').upsert({
       id: proj.id,
       data: proj,
+      team_id: currentTeamId || 'agent-qa',
       updated_at: new Date().toISOString()
     });
   } catch(e) { console.warn('saveRelease error:', e); }
@@ -2867,6 +2868,7 @@ async function saveTestPlan(projectId, plan) {
     await sbClient.from('test_plans').upsert({
       project_id: projectId,
       data: plan,
+      team_id: currentTeamId || 'agent-qa',
       updated_at: new Date().toISOString()
     });
   } catch(e) { console.warn('saveTestPlan error:', e); }
@@ -2887,6 +2889,7 @@ async function saveDailyPlanEntry(entry) {
     await sbClient.from('daily_plan').upsert({
       id: entry.id,
       data: entry,
+      team_id: currentTeamId || 'agent-qa',
       updated_at: new Date().toISOString()
     });
   } catch(e) { console.warn('saveDailyPlanEntry error:', e); }
@@ -2907,11 +2910,10 @@ async function loadReleases() {
     const { data, error } = await sbClient
       .from('releases')
       .select('data')
+      .eq('team_id', currentTeamId || 'agent-qa')
       .order('updated_at', { ascending: true });
     if (error) throw error;
-    if (data && data.length > 0) {
-      state.projects = data.map(r => r.data);
-    }
+    state.projects = (data || []).map(r => r.data);
   } catch(e) { console.warn('loadReleases error:', e); }
 }
 
@@ -2921,12 +2923,11 @@ async function loadTestPlans() {
   try {
     const { data, error } = await sbClient
       .from('test_plans')
-      .select('project_id, data');
+      .select('project_id, data')
+      .eq('team_id', currentTeamId || 'agent-qa');
     if (error) throw error;
-    if (data && data.length > 0) {
-      state.testPlans = {};
-      data.forEach(r => { state.testPlans[r.project_id] = r.data; });
-    }
+    state.testPlans = {};
+    (data || []).forEach(r => { state.testPlans[r.project_id] = r.data; });
   } catch(e) { console.warn('loadTestPlans error:', e); }
 }
 
@@ -2937,6 +2938,7 @@ async function loadMergedBuildDates() {
     const { data, error } = await sbClient
       .from('merged_build_dates')
       .select('data')
+      .eq('team_id', currentTeamId || 'agent-qa')
       .order('updated_at', { ascending: true });
     if (error) throw error;
     state.mergedBuildDates = (data || []).map(r => r.data);
@@ -2949,6 +2951,7 @@ async function saveMergedBuildDateRow(row) {
     const { error } = await sbClient.from('merged_build_dates').upsert({
       id: row.id,
       data: row,
+      team_id: currentTeamId || 'agent-qa',
       updated_at: new Date().toISOString()
     });
     if (error) { console.error('saveMergedBuildDateRow error:', error.message); return false; }
@@ -2973,6 +2976,7 @@ async function loadReviewRequests() {
     const { data, error } = await sbClient
       .from('review_requests')
       .select('data')
+      .eq('team_id', currentTeamId || 'agent-qa')
       .order('updated_at', { ascending: true });
     if (error) throw error;
     state.reviewRequests = (data || []).map(r => r.data);
@@ -2985,6 +2989,7 @@ async function saveReviewRequestRow(req) {
     const { error } = await sbClient.from('review_requests').upsert({
       id: req.id,
       data: req,
+      team_id: currentTeamId || 'agent-qa',
       updated_at: new Date().toISOString()
     });
     if (error) { console.error('saveReviewRequestRow error:', error.message); return false; }
@@ -3007,6 +3012,7 @@ async function loadEngineeringBuilds() {
     const { data, error } = await sbClient
       .from('engineering_builds')
       .select('data')
+      .eq('team_id', currentTeamId || 'agent-qa')
       .order('updated_at', { ascending: true });
     if (error) throw error;
     state.engineeringBuilds = (data || []).map(r => r.data);
@@ -3019,6 +3025,7 @@ async function saveEngBuildRow(entry) {
     const { error } = await sbClient.from('engineering_builds').upsert({
       id: entry.id,
       data: entry,
+      team_id: currentTeamId || 'agent-qa',
       updated_at: new Date().toISOString()
     });
     if (error) { console.error('saveEngBuildRow error:', error.message); return false; }
@@ -3083,11 +3090,10 @@ async function loadDailyPlan() {
     const { data, error } = await sbClient
       .from('daily_plan')
       .select('data')
+      .eq('team_id', currentTeamId || 'agent-qa')
       .order('updated_at', { ascending: true });
     if (error) throw error;
-    if (data && data.length > 0) {
-      state.dailyPlan = data.map(r => r.data);
-    }
+    state.dailyPlan = (data || []).map(r => r.data);
   } catch(e) { console.warn('loadDailyPlan error:', e); }
 }
 
@@ -3147,6 +3153,7 @@ function initSeparateTableRealtime() {
       } else if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         const proj = payload.new?.data;
         if (!proj) return;
+        if (payload.new?.team_id && payload.new.team_id !== currentTeamId) return; // other team's data
         // Don't restore a project that was just deleted by this user
         if (_deletedProjectIds.has(proj.id)) return;
         const idx = state.projects.findIndex(p => p.id === proj.id);
@@ -3197,6 +3204,7 @@ function initSeparateTableRealtime() {
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         const entry = payload.new?.data;
         if (!entry) return;
+        if (payload.new?.team_id && payload.new.team_id !== currentTeamId) return;
         const idx = state.dailyPlan.findIndex(e => e.id === entry.id);
         if (idx >= 0) state.dailyPlan[idx] = entry;
         else state.dailyPlan.push(entry);
@@ -3217,6 +3225,7 @@ function initSeparateTableRealtime() {
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         const row = payload.new?.data;
         if (!row) return;
+        if (payload.new?.team_id && payload.new.team_id !== currentTeamId) return;
         const idx = state.mergedBuildDates.findIndex(r => r.id === row.id);
         if (idx >= 0) state.mergedBuildDates[idx] = row;
         else state.mergedBuildDates.push(row);
@@ -3237,6 +3246,7 @@ function initSeparateTableRealtime() {
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         const entry = payload.new?.data;
         if (!entry) return;
+        if (payload.new?.team_id && payload.new.team_id !== currentTeamId) return;
         const idx = state.engineeringBuilds.findIndex(e => e.id === entry.id);
         if (idx >= 0) state.engineeringBuilds[idx] = entry;
         else state.engineeringBuilds.push(entry);
@@ -3257,6 +3267,7 @@ function initSeparateTableRealtime() {
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         const req = payload.new?.data;
         if (!req) return;
+        if (payload.new?.team_id && payload.new.team_id !== currentTeamId) return;
         const idx = state.reviewRequests.findIndex(r => r.id === req.id);
         if (idx >= 0) state.reviewRequests[idx] = req;
         else state.reviewRequests.push(req);
@@ -3289,6 +3300,7 @@ async function saveEnvironmentRow(projId, row) {
       assignee_ids: row.assigneeIds || [],
       status: row.status || 'Not yet started',
       sort_order: row.sortOrder || 0,
+      team_id: currentTeamId || 'agent-qa',
       updated_at: new Date().toISOString()
     });
   } catch(e) { console.warn('saveEnvironmentRow error:', e); }
@@ -3312,6 +3324,7 @@ async function saveMilestonesRow(projId, ms) {
       exec_no_buffer: ms.execNoBuffer || '',
       exec_with_buffer: ms.execWithBuffer || '',
       merged_build_go_ahead: ms.mergedBuildGoAhead || '',
+      team_id: currentTeamId || 'agent-qa',
       updated_at: new Date().toISOString()
     });
   } catch(e) { console.warn('saveMilestonesRow error:', e); }
@@ -3334,6 +3347,7 @@ async function saveBufferRow(projId, plan) {
       reviewed: plan.reviewed || false,
       reviewed_by: plan.reviewedBy || '',
       reviewed_at: plan.reviewedAt || '',
+      team_id: currentTeamId || 'agent-qa',
       updated_at: new Date().toISOString()
     });
     if (error) {
@@ -3565,6 +3579,7 @@ async function savePeopleRecord(person) {
     await sbClient.from('people').upsert({
       id: person.id,
       data: person,
+      team_id: currentTeamId || 'agent-qa',
       updated_at: new Date().toISOString()
     });
   } catch(e) { console.warn('savePeopleRecord error:', e); }
@@ -3581,9 +3596,9 @@ async function loadPeople() {
   if (!sbClient) return;
   try {
     const { data, error } = await sbClient
-      .from('people').select('data').order('updated_at', { ascending: true });
+      .from('people').select('data').eq('team_id', currentTeamId || 'agent-qa').order('updated_at', { ascending: true });
     if (error) throw error;
-    if (data && data.length > 0) state.people = data.map(r => r.data);
+    state.people = (data || []).map(r => r.data);
   } catch(e) { console.warn('loadPeople error:', e); }
 }
 
@@ -3603,6 +3618,7 @@ async function saveLeaveRecord(personId, dateKey, type) {
         person_id: personId,
         date: dateKey,
         type: type,
+        team_id: currentTeamId || 'agent-qa',
         updated_at: new Date().toISOString()
       });
     }
@@ -3612,15 +3628,13 @@ async function saveLeaveRecord(personId, dateKey, type) {
 async function loadLeaves() {
   if (!sbClient) return;
   try {
-    const { data, error } = await sbClient.from('leaves').select('*');
+    const { data, error } = await sbClient.from('leaves').select('*').eq('team_id', currentTeamId || 'agent-qa');
     if (error) throw error;
-    if (data && data.length > 0) {
-      state.leaves = {};
-      data.forEach(r => {
-        if (!state.leaves[r.person_id]) state.leaves[r.person_id] = {};
-        state.leaves[r.person_id][r.date] = r.type;
-      });
-    }
+    state.leaves = {};
+    (data || []).forEach(r => {
+      if (!state.leaves[r.person_id]) state.leaves[r.person_id] = {};
+      state.leaves[r.person_id][r.date] = r.type;
+    });
   } catch(e) { console.warn('loadLeaves error:', e); }
 }
 
@@ -3663,6 +3677,7 @@ async function saveVMRecord(vm) {
     await sbClient.from('vms').upsert({
       id: vm.id,
       data: vm,
+      team_id: currentTeamId || 'agent-qa',
       updated_at: new Date().toISOString()
     });
   } catch(e) { console.warn('saveVMRecord error:', e); }
@@ -3679,9 +3694,9 @@ async function loadVMs() {
   if (!sbClient) return;
   try {
     const { data, error } = await sbClient
-      .from('vms').select('data').order('updated_at', { ascending: true });
+      .from('vms').select('data').eq('team_id', currentTeamId || 'agent-qa').order('updated_at', { ascending: true });
     if (error) throw error;
-    if (data && data.length > 0) state.vms = data.map(r => r.data);
+    state.vms = (data || []).map(r => r.data);
   } catch(e) { console.warn('loadVMs error:', e); }
 }
 
@@ -3797,6 +3812,7 @@ function initFieldTablesRealtime() {
       } else {
         const person = payload.new?.data;
         if (!person) return;
+        if (payload.new?.team_id && payload.new.team_id !== currentTeamId) return;
         const idx = state.people.findIndex(p => p.id === person.id);
         if (idx >= 0) state.people[idx] = person;
         else state.people.push(person);
@@ -3809,6 +3825,7 @@ function initFieldTablesRealtime() {
   sbClient.channel('leaves-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'leaves' }, (payload) => {
       if (!state.leaves) state.leaves = {};
+      if (payload.new?.team_id && payload.new.team_id !== currentTeamId) return;
       const personId = payload.new?.person_id || payload.old?.person_id;
       const date = payload.new?.date || payload.old?.date;
       if (!personId || !date) return;
@@ -3849,6 +3866,7 @@ function initFieldTablesRealtime() {
       } else {
         const vm = payload.new?.data;
         if (!vm) return;
+        if (payload.new?.team_id && payload.new.team_id !== currentTeamId) return;
         const idx = state.vms.findIndex(v => v.id === vm.id);
         if (idx >= 0) state.vms[idx] = vm;
         else state.vms.push(vm);
@@ -4174,12 +4192,15 @@ async function switchActiveTeam(tid) {
   currentTeamId = tid;
   localStorage.setItem('tl_active_team', tid);
   renderTeamSwitcher();
-  showToastMsg('🔄 Switched to ' + (TEAM_NAMES[tid] || tid));
-  // NOTE: per-tab data filtering by team is wired up in a later step —
-  // for now this just switches the active team context.
+  showToastMsg('🔄 Switching to ' + (TEAM_NAMES[tid] || tid) + '…');
+  selectedTestPlanProjectId = null;
+  await loadState();
+  await Promise.all((state.projects || []).map(p => loadFullTestPlanFromDB(p.id)));
+  syncTestPlanToProjects();
   markAllDirty();
   clearRenderCache();
   renderTab(_activeTab);
+  showToastMsg('✅ Now viewing ' + (TEAM_NAMES[tid] || tid));
 }
 
 function determineActiveTeam() {
