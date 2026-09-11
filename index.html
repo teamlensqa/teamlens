@@ -13814,10 +13814,21 @@ function renderReleaseExecTracker() {
     const planned = parseFloat(p.effort) || 0;
     const burned = burnedByProject[p.name.trim().toLowerCase()] || 0;
     const diff = planned - burned;
-    let varBadge;
-    if (diff > 0) varBadge = `<span style="background:#dcfce7;color:#15803d;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;">${diff} PD ahead</span>`;
-    else if (diff < 0) varBadge = `<span style="background:#fee2e2;color:#dc2626;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;">${Math.abs(diff)} PD over</span>`;
-    else varBadge = `<span style="background:#f1f5f9;color:#64748b;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;">On track</span>`;
+    const pct = planned > 0 ? Math.min(100, Math.round((burned / planned) * 100)) : (burned > 0 ? 100 : 0);
+
+    let statusIcon, statusColor, varBadge, rowTint;
+    if (diff > 0) {
+      statusIcon = '✅'; statusColor = '#15803d'; rowTint = 'rgba(21,128,61,0.04)';
+      varBadge = `<span style="background:#dcfce7;color:#15803d;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">${diff} PD ahead</span>`;
+    } else if (diff < 0) {
+      statusIcon = '⚠️'; statusColor = '#dc2626'; rowTint = 'rgba(220,38,38,0.05)';
+      varBadge = `<span style="background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">${Math.abs(diff)} PD over</span>`;
+    } else {
+      statusIcon = '➖'; statusColor = '#64748b'; rowTint = 'var(--panel-2)';
+      varBadge = `<span style="background:var(--panel-2);color:#64748b;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">On track</span>`;
+    }
+    const barColor = diff < 0 ? '#dc2626' : (diff === 0 ? '#7c3aed' : '#15803d');
+
     const canEditDP = canEdit('dailyplan');
     const reasonCell = diff < 0
       ? (canEditDP
@@ -13827,27 +13838,36 @@ function renderReleaseExecTracker() {
                style="width:100%;font-size:12px;padding:6px 8px;font-family:inherit;resize:vertical;min-height:36px;white-space:pre-wrap;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--text);">${escapeHtml(p.delayReason || '')}</textarea>`
           : `<span style="font-size:12px;color:var(--text-dim);white-space:pre-wrap;">${escapeHtml(p.delayReason || '—')}</span>`)
       : '<span style="color:var(--text-faint);">—</span>';
-    return `<tr>
-      <td style="padding:8px 10px;font-weight:600;">${escapeHtml(p.name)}</td>
-      <td style="padding:8px 10px;text-align:right;">${planned}</td>
-      <td style="padding:8px 10px;text-align:right;">${burned}</td>
-      <td style="padding:8px 10px;text-align:right;">${varBadge}</td>
-      <td style="padding:8px 10px;">${reasonCell}</td>
-    </tr>`;
+
+    return `<div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr 1.6fr;gap:14px;align-items:center;padding:12px 14px;background:${rowTint};border-radius:10px;margin-bottom:8px;border-left:3px solid ${statusColor};">
+      <div>
+        <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:6px;">${statusIcon} ${escapeHtml(p.name)}</div>
+        <div style="height:5px;background:var(--panel-2);border-radius:99px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${barColor};border-radius:99px;transition:width 0.3s;"></div>
+        </div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">Planned</div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);">${planned}</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">Burned</div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);">${burned}</div>
+      </div>
+      <div style="text-align:center;">${varBadge}</div>
+      <div>${reasonCell}</div>
+    </div>`;
   }).join('');
 
-  body.innerHTML = `<div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
-      <thead><tr style="border-bottom:1px solid var(--border-soft);">
-        <th style="padding:8px 10px;text-align:left;color:var(--text-faint);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Release item</th>
-        <th style="padding:8px 10px;text-align:right;color:var(--text-faint);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Planned PD</th>
-        <th style="padding:8px 10px;text-align:right;color:var(--text-faint);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Actual PD burned</th>
-        <th style="padding:8px 10px;text-align:right;color:var(--text-faint);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Variance</th>
-        <th style="padding:8px 10px;text-align:left;color:var(--text-faint);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Delay reason</th>
-      </tr></thead>
-      <tbody>${rowsHtml}</tbody>
-    </table>
-  </div>`;
+  body.innerHTML = `
+    <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr 1.6fr;gap:14px;padding:0 14px 8px;">
+      <div style="font-size:10.5px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;">Release item</div>
+      <div style="font-size:10.5px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;text-align:center;">Planned PD</div>
+      <div style="font-size:10.5px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;text-align:center;">Burned PD</div>
+      <div style="font-size:10.5px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;text-align:center;">Variance</div>
+      <div style="font-size:10.5px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.05em;">Delay reason</div>
+    </div>
+    ${rowsHtml}`;
 }
 
 function saveDelayReason(projId, value) {
@@ -14056,6 +14076,16 @@ function setEngBuildPeriod(period) {
 }
 
 const MASTER_COMPONENT_LIST = ['Desktop Client', 'Mac Client', 'HotFolder Server', 'AppConnect Server', 'AppConnect Client', 'Classification Migration', 'iOS Device'];
+const COMPONENT_ICONS = {
+  'Desktop Client': '🖥️',
+  'Mac Client': '🍏',
+  'HotFolder Server': '📥',
+  'AppConnect Server': '🖧',
+  'AppConnect Client': '🔌',
+  'Classification Migration': '🏷️',
+  'iOS Device': '📲',
+};
+function getComponentIcon(comp) { return COMPONENT_ICONS[comp] || '🧩'; }
 
 function getEngBuildComponents() {
   return MASTER_COMPONENT_LIST;
@@ -14164,7 +14194,7 @@ function renderEngBuildReport() {
 
     return '<div class="panel" style="margin-bottom:0;padding:0;overflow:hidden;border-left:3px solid #0891b2;">' +
       '<div onclick="toggleAccPanel(\'' + accId + '\')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;">' +
-        '<div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#0f766e,#0891b2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🧩</div>' +
+        '<div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#0f766e,#0891b2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">' + getComponentIcon(comp) + '</div>' +
         '<div style="flex:1;min-width:0;font-size:14px;font-weight:700;">' + escapeHtml(comp) + '</div>' +
         '<div style="display:flex;gap:14px;font-size:12px;color:var(--text-faint);flex-shrink:0;flex-wrap:wrap;">' +
           '<span>total <strong style="color:var(--text);">' + total + '</strong></span>' +
@@ -14287,7 +14317,7 @@ function removeEngBuildTag(projId) {
   updateEngBuildSuggestions();
 }
 
-function saveEngBuildEntry() {
+async function saveEngBuildEntry() {
   const editId = document.getElementById('engBuildEditId').value;
   const component = document.getElementById('ebComponent').value;
   if (!component) { showToastMsg('❌ Select a component first'); return; }
@@ -14314,18 +14344,26 @@ function saveEngBuildEntry() {
   } else {
     state.engineeringBuilds.push(entry);
   }
-  saveState();
+  const ok = await saveState();
   closeEngBuildModal();
   renderEngBuildReport();
-  showToastMsg('✅ Build entry saved');
+  if (ok) {
+    showToastMsg('✅ Build entry saved');
+  } else {
+    showToastMsg('❌ Could not save to the database — check your edit access. This entry will be lost on refresh until it saves successfully.');
+  }
 }
 
-function deleteEngBuildEntry(id) {
+async function deleteEngBuildEntry(id) {
   if (!confirm('Delete this build entry?')) return;
   state.engineeringBuilds = (state.engineeringBuilds || []).filter(e => e.id !== id);
-  saveState();
   renderEngBuildReport();
-  showToastMsg('🗑️ Build entry deleted');
+  const ok = await saveState();
+  if (ok) {
+    showToastMsg('🗑️ Build entry deleted');
+  } else {
+    showToastMsg('❌ Could not save this deletion — check your edit access');
+  }
 }
 
 function openEngBuildReportInTab() {
