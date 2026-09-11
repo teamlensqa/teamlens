@@ -267,6 +267,22 @@
   }
   button.ghost:hover { border-color: #94a3b8; color: var(--text); background: var(--panel-2); box-shadow: var(--shadow-md); }
 
+  button.manage-btn {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    border: 1.5px solid color-mix(in srgb, var(--accent) 32%, transparent);
+    color: var(--accent);
+    padding: 8px 15px; border-radius: 9px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    font-family: inherit; transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  button.manage-btn:hover {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+  button.manage-btn:active { transform: translateY(0); }
+  button.manage-btn .manage-btn-icon { font-size: 13px; }
+
   button.icon-btn {
     background: transparent; border: none; color: var(--text-faint);
     cursor: pointer; font-size: 14px; padding: 5px 8px; border-radius: 7px;
@@ -1176,7 +1192,7 @@
           <h3>Team roster</h3>
           <div class="desc">People available for resource planning</div>
         </div>
-        <button class="ghost" onclick="openDevPodsModal()">⚙️ Manage PODs</button>
+        <button class="manage-btn" onclick="openDevPodsModal()"><span class="manage-btn-icon">⚙️</span> Manage PODs</button>
         <button class="action" onclick="openPersonModal()">+ Add person</button>
       </div>
       <table>
@@ -1219,7 +1235,7 @@
             <button class="action" style="padding:5px 12px; font-size:12px; background:linear-gradient(135deg,#dc2626,#b91c1c); box-shadow:0 2px 6px rgba(220,38,38,0.35);" onclick="bulkDelete()">🗑 Delete selected</button>
             <button class="ghost" style="padding:5px 10px; font-size:12px;" onclick="clearBulkSelection()">✕ Cancel</button>
           </div>
-          <button class="ghost" onclick="openComponentsModal()">⚙️ Manage Components</button>
+          <button class="manage-btn" onclick="openComponentsModal()"><span class="manage-btn-icon">⚙️</span> Manage Components</button>
           <button id="addReleaseBtn" class="action" onclick="openProjectModal()">+ Add release item</button>
         </div>
       </div>
@@ -1992,7 +2008,7 @@
           <div class="desc">Track VM allocations, current usage, and availability across all groups</div>
         </div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <button class="ghost" onclick="openVMPodsModal()" style="display:flex;align-items:center;gap:6px; font-size:12px;">
+          <button class="manage-btn" onclick="openVMPodsModal()">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             Manage groups
           </button>
