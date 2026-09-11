@@ -4913,11 +4913,29 @@ async function saveState() {
       ...stateToSave
     } = state;
 
+    // Merge with the latest server copy before saving — a stale/older
+    // browser tab (or a different session) may not know about a field
+    // added after it loaded, and would otherwise silently erase it by
+    // overwriting the whole blob with its own incomplete snapshot.
+    let mergedStateToSave = stateToSave;
+    try {
+      const { data: currentRow } = await sbClient
+        .from('resource_planner')
+        .select('data')
+        .eq('id', 'shared')
+        .maybeSingle();
+      if (currentRow && currentRow.data && typeof currentRow.data === 'object') {
+        mergedStateToSave = { ...currentRow.data, ...stateToSave };
+      }
+    } catch (mergeErr) {
+      console.warn('Could not fetch latest state to merge — saving local snapshot as-is:', mergeErr);
+    }
+
     const now = new Date().toISOString();
 
     const { error } = await sbClient
       .from('resource_planner')
-      .upsert({ id: 'shared', data: stateToSave, updated_at: now });
+      .upsert({ id: 'shared', data: mergedStateToSave, updated_at: now });
 
     if (error) {
       console.error('Save error:', error);
