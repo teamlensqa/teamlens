@@ -7246,6 +7246,17 @@ function buildAllPlansHtml(projects) {
   }).join('');
 }
 
+function toggleArchiveCard(id, projId) {
+  const body    = document.getElementById(id);
+  const chevron = document.getElementById(id + '-ch');
+  if (!body) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if (chevron) chevron.textContent = isOpen ? '▼' : '▲';
+  if (isOpen) _archiveExpandedIds.delete(projId);
+  else _archiveExpandedIds.add(projId);
+}
+
 function toggleAccPanel(id) {
   const body    = document.getElementById(id);
   const chevron = document.getElementById(id + '-ch');
@@ -13015,6 +13026,8 @@ function revertFromVault(projectId) {
   showToastMsg('↩ "' + proj.name + '" moved back to active releases');
 }
 
+let _archiveExpandedIds = new Set();
+
 function renderArchive() {
   const content  = document.getElementById('archiveContent');
   const empty    = document.getElementById('archiveEmpty');
@@ -13174,10 +13187,12 @@ function renderArchive() {
         '</details>' : '';
 
     const accId = 'arch-' + proj.id + '-' + idx;
+    if (idx === 0 && _archiveExpandedIds.size === 0) _archiveExpandedIds.add(proj.id);
+    const isExpanded = _archiveExpandedIds.has(proj.id);
 
     return '<div class="panel" style="margin-bottom:10px;padding:0;overflow:hidden;">' +
       // Header
-      '<div onclick="toggleAccPanel(\'' + accId + '\')" style="display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;transition:background 0.1s;user-select:none;" ' +
+      '<div onclick="toggleArchiveCard(\'' + accId + '\', \'' + proj.id + '\')" style="display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;transition:background 0.1s;user-select:none;" ' +
         'onmouseover="this.style.background=\'var(--panel-2)\'" onmouseout="this.style.background=\'\'">' +
         '<div style="flex:1;min-width:0;">' +
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">' +
@@ -13200,11 +13215,11 @@ function renderArchive() {
             '<div style="height:100%;width:'+donePct+'%;background:linear-gradient(90deg,#10b981,#059669);border-radius:99px;"></div>' +
           '</div>' +
         '</div>' +
-        '<span id="' + accId + '-ch" style="font-size:11px;color:var(--text-faint);flex-shrink:0;">' + (idx === 0 ? '▲' : '▼') + '</span>' +
+        '<span id="' + accId + '-ch" style="font-size:11px;color:var(--text-faint);flex-shrink:0;">' + (isExpanded ? '▲' : '▼') + '</span>' +
         (canEdit('projects') ? '<button onclick="event.stopPropagation();revertFromVault(\''+proj.id+'\')" title="Move back to active" style="background:transparent;border:1px solid #f59e0b;color:#b45309;border-radius:7px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap;" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'transparent\'">↩ Revert</button>' : '') +
       '</div>' +
       // Body
-      '<div id="' + accId + '" style="display:' + (idx === 0 ? 'block' : 'none') + ';border-top:1px solid var(--border-soft);">' +
+      '<div id="' + accId + '" style="display:' + (isExpanded ? 'block' : 'none') + ';border-top:1px solid var(--border-soft);">' +
         '<div style="overflow-x:auto;">' +
           '<table style="width:100%;border-collapse:collapse;">' +
             '<thead><tr style="background:var(--panel-2);">' +
