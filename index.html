@@ -9437,9 +9437,9 @@ function renderDimensionChecklistViewGrid() {
     const prioColors = { P1: '#dc2626;background:#fee2e2', P2: '#b45309;background:#fef3c7', P3: '#15803d;background:#dcfce7' };
     body.innerHTML = rows.map(r => `
       <tr style="border-top:1px solid var(--border-soft);">
-        <td style="padding:8px; vertical-align:top; white-space:pre-wrap; color:var(--text);">${escapeHtml(r.scenario||'—')}</td>
-        <td style="padding:8px; vertical-align:top; white-space:pre-wrap; color:var(--text);">${escapeHtml(r.subScenario||'—')}</td>
-        <td style="padding:8px; vertical-align:top; white-space:pre-wrap; color:var(--text);">${escapeHtml(r.testCases||'—')}</td>
+        <td style="padding:8px; vertical-align:top; white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; color:var(--text);">${escapeHtml(r.scenario||'—')}</td>
+        <td style="padding:8px; vertical-align:top; white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; color:var(--text);">${escapeHtml(r.subScenario||'—')}</td>
+        <td style="padding:8px; vertical-align:top; white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; color:var(--text);">${escapeHtml(r.testCases||'—')}</td>
         <td style="padding:8px; vertical-align:top; text-align:right; color:var(--text);">${r.count||0}</td>
         <td style="padding:8px; vertical-align:top;"><span style="padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;color:${(prioColors[r.priority]||'').split(';')[0]};${(prioColors[r.priority]||'').split(';')[1]||''}">${escapeHtml(r.priority||'—')}</span></td>
         <td></td>
@@ -14295,7 +14295,7 @@ function renderEngBuildReportInner() {
     const rowsHtml = entries.map((e, rowIdx) => {
       const tags = (e.taggedItemIds || []).map(id => {
         const p = state.projects.find(pp => pp.id === id);
-        return p ? '<span style="font-size:11px;background:#f3e8ff;color:#7e22ce;padding:2px 9px;border-radius:20px;font-weight:600;white-space:nowrap;display:inline-block;margin:1px;">' + escapeHtml(p.name) + '</span>' : '';
+        return p ? '<span style="font-size:11px;background:#f3e8ff;color:#7e22ce;padding:3px 9px;border-radius:12px;font-weight:600;white-space:normal;overflow-wrap:break-word;word-break:break-word;display:inline-block;max-width:100%;margin:2px 0;line-height:1.4;">' + escapeHtml(p.name) + '</span>' : '';
       }).join('');
       const editBtns = canEditBR
         ? '<button onclick="editEngBuildEntry(\'' + e.id + '\')" title="Edit" style="background:none;border:none;cursor:pointer;color:var(--text-faint);padding:2px 4px;">✎</button>' +
@@ -14313,7 +14313,7 @@ function renderEngBuildReportInner() {
         '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + (e.plannedBuilds||0) + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + (e.unplannedBuilds||0) + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;' + (bvtVal>0?'color:#dc2626;font-weight:700;':'') + '">' + bvtVal + '</td>' +
-        '<td style="padding:8px 6px;overflow:hidden;">' + (tags || '<span style="color:var(--text-faint);">—</span>') + '</td>' +
+        '<td style="padding:8px 6px;">' + (tags || '<span style="color:var(--text-faint);">—</span>') + '</td>' +
         '<td style="padding:8px 6px;text-align:center;">' + issueByBadge + '</td>' +
         '<td style="padding:8px 6px;overflow:hidden;">' + ((e.reason || e.comments) ?
           '<details style="cursor:pointer;">' +
@@ -14341,7 +14341,7 @@ function renderEngBuildReportInner() {
         '<span id="' + accId + '-ch" style="font-size:11px;color:var(--text-faint);">▼</span>' +
       '</div>' +
       '<div id="' + accId + '" style="display:none;padding:0 16px 14px;overflow-x:auto;overflow-y:auto;max-height:420px;">' +
-        '<table style="width:100%;min-width:1020px;border-collapse:collapse;table-layout:fixed;">' +
+        '<table style="width:100%;min-width:1120px;border-collapse:collapse;table-layout:fixed;">' +
           '<colgroup>' +
             '<col style="width:100px;">' +
             '<col style="width:100px;">' +
@@ -14350,7 +14350,7 @@ function renderEngBuildReportInner() {
             '<col style="width:80px;">' +
             '<col>' +
             '<col style="width:100px;">' +
-            '<col style="width:200px;">' +
+            '<col style="width:300px;">' +
             '<col style="width:50px;">' +
           '</colgroup>' +
           '<thead><tr style="position:sticky;top:0;background:var(--panel);z-index:1;">' +
