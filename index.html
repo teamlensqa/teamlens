@@ -13974,14 +13974,7 @@ function getEngBuildPeriodRange() {
   }
   const today = new Date();
   let start = null, end = null;
-  if (ebrPeriod === 'quarter') {
-    const q = Math.floor(today.getMonth() / 3);
-    start = new Date(today.getFullYear(), q * 3, 1);
-    end = new Date(today.getFullYear(), q * 3 + 3, 0);
-  } else if (ebrPeriod === '6months') {
-    start = new Date(today.getFullYear(), today.getMonth() - 5, 1);
-    end = today;
-  } else if (ebrPeriod === 'fy') {
+  if (ebrPeriod === 'fy') {
     const fyStartYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
     start = new Date(fyStartYear, 3, 1);
     end = new Date(fyStartYear + 1, 2, 31);
@@ -14009,7 +14002,7 @@ function populateEngBuildFilters() {
   filterSel.innerHTML = '<option value="">All components</option>' +
     components.map(c => `<option value="${escapeHtml(c)}" ${curVal===c?'selected':''}>${escapeHtml(c)}</option>`).join('');
 
-  const periods = [['all','All time'],['quarter','This quarter'],['6months','Last 6 months'],['fy','This FY']];
+  const periods = [['all','All time'],['fy','This FY']];
   pillsEl.innerHTML = periods.map(([key,label]) =>
     `<button onclick="setEngBuildPeriod('${key}')" style="font-size:11.5px; padding:5px 12px; border-radius:20px; border:1px solid ${ebrPeriod===key?'transparent':'var(--border)'}; background:${ebrPeriod===key?'linear-gradient(135deg,#7c3aed,#2563eb)':'transparent'}; color:${ebrPeriod===key?'white':'var(--text-dim)'}; cursor:pointer; font-weight:600;">${label}</button>`
   ).join('');
@@ -14091,7 +14084,7 @@ function renderEngBuildReport() {
         '<td style="padding:8px 6px;max-width:260px;">' + ((e.reason || e.comments) ?
           '<details style="cursor:pointer;">' +
             '<summary style="font-size:11.5px;font-weight:600;color:#b45309;list-style:none;display:inline-flex;align-items:center;gap:4px;">📝 Notes</summary>' +
-            '<div style="margin-top:6px;font-size:12px;color:var(--text-dim);white-space:pre-wrap;line-height:1.5;background:var(--panel-2);border-radius:8px;padding:8px 10px;">' +
+            '<div style="margin-top:6px;font-size:12px;color:var(--text-dim);white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;line-height:1.5;background:var(--panel-2);border-radius:8px;padding:8px 10px;max-width:260px;">' +
               (e.reason ? '<div style="margin-bottom:6px;"><strong style="color:var(--text);">Reason:</strong> ' + escapeHtml(e.reason) + '</div>' : '') +
               (e.comments ? '<div><strong style="color:var(--text);">Comments:</strong> ' + escapeHtml(e.comments) + '</div>' : '') +
             '</div>' +
@@ -14113,9 +14106,9 @@ function renderEngBuildReport() {
         '</div>' +
         '<span id="' + accId + '-ch" style="font-size:11px;color:var(--text-faint);">▼</span>' +
       '</div>' +
-      '<div id="' + accId + '" style="display:none;padding:0 16px 14px;overflow-x:auto;">' +
+      '<div id="' + accId + '" style="display:none;padding:0 16px 14px;overflow-x:auto;overflow-y:auto;max-height:420px;">' +
         '<table style="width:100%;min-width:760px;border-collapse:collapse;">' +
-          '<thead><tr>' +
+          '<thead><tr style="position:sticky;top:0;background:var(--panel);z-index:1;">' +
             '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">GA date</th>' +
             '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Version</th>' +
             '<th style="text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Planned</th>' +
@@ -14270,7 +14263,7 @@ function deleteEngBuildEntry(id) {
 function openEngBuildReportInTab() {
   const compFilter = document.getElementById('ebrComponentFilter')?.value || '';
   const { start, end } = getEngBuildPeriodRange();
-  const periodLabels = { all: 'All time', quarter: 'This quarter', '6months': 'Last 6 months', fy: 'This FY' };
+  const periodLabels = { all: 'All time', fy: 'This FY', custom: 'Custom GA date range' };
 
   let builds = state.engineeringBuilds || [];
   if (compFilter) builds = builds.filter(b => b.component === compFilter);
@@ -14321,9 +14314,9 @@ function openEngBuildReportInTab() {
         '<td class="r">' + (e.unplannedBuilds||0) + '</td>' +
         '<td class="r">' + (e.bvtFailed||0) + '</td>' +
         '<td>' + escapeHtml(e.issueBy||'—') + '</td>' +
-        '<td>' + escapeHtml(e.reason||'—') + '</td>' +
+        '<td style="max-width:220px;overflow-wrap:anywhere;word-break:break-word;">' + escapeHtml(e.reason||'—') + '</td>' +
         '<td>' + (tags || '—') + '</td>' +
-        '<td>' + escapeHtml(e.comments||'—') + '</td>' +
+        '<td style="max-width:220px;overflow-wrap:anywhere;word-break:break-word;">' + escapeHtml(e.comments||'—') + '</td>' +
       '</tr>';
     }).join('');
     return '<div class="project-card"><div class="project-card-body"><div class="section-label">' + escapeHtml(comp) + '</div>' +
