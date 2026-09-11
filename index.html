@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- TeamLens build marker: 2026-09-11-v6 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1404,7 +1405,9 @@
 
       <div class="grid-4" id="ebrSummaryCards" style="margin-bottom:16px;"></div>
 
-      <div id="ebrList" style="display:flex; flex-direction:column; gap:8px;"></div>
+      <div id="ebrList" style="display:flex; flex-direction:column; gap:8px;">
+        <div style="padding:32px; text-align:center; color:var(--text-faint); font-style:italic;">⏳ Loading build history…</div>
+      </div>
       <div class="empty-state" id="ebrEmpty" style="display:none;">No build entries yet — add one to get started.</div>
     </div>
   </div>
@@ -14338,17 +14341,17 @@ function renderEngBuildReportInner() {
         '<span id="' + accId + '-ch" style="font-size:11px;color:var(--text-faint);">▼</span>' +
       '</div>' +
       '<div id="' + accId + '" style="display:none;padding:0 16px 14px;overflow-x:auto;overflow-y:auto;max-height:420px;">' +
-        '<table style="width:100%;min-width:1000px;border-collapse:collapse;table-layout:fixed;">' +
+        '<table style="width:100%;min-width:920px;border-collapse:collapse;table-layout:fixed;">' +
           '<colgroup>' +
-            '<col style="width:110px;">' +
-            '<col style="width:120px;">' +
-            '<col style="width:110px;">' +
-            '<col style="width:110px;">' +
-            '<col style="width:110px;">' +
+            '<col style="width:100px;">' +
+            '<col style="width:100px;">' +
+            '<col style="width:80px;">' +
+            '<col style="width:90px;">' +
+            '<col style="width:80px;">' +
             '<col>' +
-            '<col style="width:110px;">' +
-            '<col style="width:140px;">' +
-            '<col style="width:60px;">' +
+            '<col style="width:100px;">' +
+            '<col style="width:90px;">' +
+            '<col style="width:50px;">' +
           '</colgroup>' +
           '<thead><tr style="position:sticky;top:0;background:var(--panel);z-index:1;">' +
             '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">GA date</th>' +
