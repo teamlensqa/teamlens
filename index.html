@@ -987,7 +987,7 @@
         Holidays
       </button>
 
-      <div class="nav-section-label" id="navLabelPlanning">Planning</div>
+      <div class="nav-section-label" id="navLabelPlanning">Planning &amp; Tracking</div>
       <button class="tab-btn" data-tab="dailyplan" data-title="Daily resource plan" data-desc="One project per person per day, across a date range">
         <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></span>
         Daily plan
@@ -1433,6 +1433,12 @@
           <option value="">All components</option>
         </select>
         <div id="ebrPeriodPills" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+        <span style="width:1px; height:20px; background:var(--border);"></span>
+        <label style="font-size:11px; color:var(--text-faint); font-weight:600;">GA date:</label>
+        <input type="date" id="ebrGaFrom" onchange="setEngBuildPeriod('custom')" style="font-size:12px; padding:5px 8px;">
+        <span style="font-size:11px; color:var(--text-faint);">to</span>
+        <input type="date" id="ebrGaTo" onchange="setEngBuildPeriod('custom')" style="font-size:12px; padding:5px 8px;">
+        <button class="ghost" onclick="document.getElementById('ebrGaFrom').value='';document.getElementById('ebrGaTo').value='';setEngBuildPeriod('all');" style="font-size:11px; padding:5px 10px;">Clear dates</button>
       </div>
 
       <div class="grid-4" id="ebrSummaryCards" style="margin-bottom:16px;"></div>
@@ -1441,6 +1447,18 @@
       <div class="empty-state" id="ebrEmpty" style="display:none;">No build entries yet — add one to get started.</div>
     </div>
   </div>
+
+  <!-- Engg Build Breakdown Modal -->
+  <div class="modal-overlay" id="engBuildBreakdownModal">
+    <div class="modal" style="width:92vw; max-width:480px;">
+      <h3 id="engBuildBreakdownTitle">Breakdown</h3>
+      <div id="engBuildBreakdownBody" style="margin-top:12px;"></div>
+      <div class="modal-actions">
+        <button class="ghost" onclick="document.getElementById('engBuildBreakdownModal').classList.remove('show')">Close</button>
+      </div>
+    </div>
+  </div>
+
 
   <!-- Engg Build Entry Modal -->
   <div class="modal-overlay" id="engBuildModal">
@@ -1470,7 +1488,7 @@
           </div>
           <div class="field" style="margin-bottom:0;">
             <label>Dev release owner(s)</label>
-            <input type="text" id="ebOwner" placeholder="Aditya/Rohit">
+            <input type="text" id="ebOwner" placeholder="e.g. Name1 / Name2">
           </div>
         </div>
       </div>
@@ -1504,22 +1522,22 @@
 
       <div style="background:linear-gradient(135deg,rgba(217,119,6,0.07),rgba(234,179,8,0.04)); border:1px solid rgba(217,119,6,0.18); border-radius:12px; padding:14px 16px; margin-bottom:14px;">
         <div style="font-size:11px; font-weight:700; color:#b45309; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px;">🏷️ Tagged release items</div>
-        <div id="ebSuggestionsList" style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;"></div>
-        <label style="font-size:10.5px; color:var(--text-faint); font-weight:600; display:block; margin-bottom:4px;">Release item</label>
-        <select id="ebManualTagSelect" onchange="addManualEngBuildTag(this.value); this.value='';" disabled style="font-size:12px; padding:6px 10px; width:100%;">
+        <div id="ebSuggestionsList" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;"></div>
+        <label style="font-size:10.5px; color:var(--text-faint); font-weight:600; display:block; margin-bottom:4px;">Release items for this component + GA date (hold Ctrl/Cmd to select multiple)</label>
+        <select id="ebManualTagSelect" multiple size="4" onchange="addSelectedEngBuildTags(this)" disabled style="font-size:12.5px; padding:6px 10px; width:100%; box-sizing:border-box;">
           <option value="">Select component + GA date first…</option>
         </select>
       </div>
 
-      <div style="background:var(--panel-2); border-radius:12px; padding:14px 16px; margin-bottom:10px;">
+      <div style="background:linear-gradient(135deg,rgba(71,85,105,0.06),rgba(71,85,105,0.02)); border:1px solid var(--border-soft); border-radius:12px; padding:14px 16px; margin-bottom:10px;">
         <div style="font-size:11px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px;">📝 Notes</div>
-        <div class="field" style="margin-bottom:10px;">
-          <label>Reason for unplanned / BVT failure</label>
-          <textarea id="ebReason" rows="2" style="font-family:inherit;"></textarea>
+        <div class="field" style="margin-bottom:12px;">
+          <label>⚠️ Reason for unplanned / BVT failure</label>
+          <textarea id="ebReason" rows="3" placeholder="What caused the unplanned build or BVT failure…" style="font-family:inherit; width:100%; resize:vertical; background:var(--panel); border-radius:8px; white-space:pre-wrap;"></textarea>
         </div>
         <div class="field" style="margin-bottom:0;">
-          <label>Any other comments</label>
-          <textarea id="ebComments" rows="2" style="font-family:inherit;"></textarea>
+          <label>💬 Any other comments</label>
+          <textarea id="ebComments" rows="3" placeholder="Anything else worth noting for this build…" style="font-family:inherit; width:100%; resize:vertical; background:var(--panel); border-radius:8px; white-space:pre-wrap;"></textarea>
         </div>
       </div>
 
@@ -13904,8 +13922,54 @@ function deleteMergedBuildDateRow(rowId) {
 
 // ====================== ENGG BUILD REPORT ======================
 let ebrPeriod = 'all';
+let _ebrLastFilteredBuilds = [];
+
+function showEngBuildBreakdown(metric) {
+  const labels = { total: '📦 Total builds', planned: '✅ Planned builds', unplanned: '⚡ Unplanned builds', bvt: '🚨 BVT failed' };
+  const getVal = (b) => {
+    if (metric === 'total') return (parseInt(b.plannedBuilds)||0) + (parseInt(b.unplannedBuilds)||0);
+    if (metric === 'planned') return parseInt(b.plannedBuilds)||0;
+    if (metric === 'unplanned') return parseInt(b.unplannedBuilds)||0;
+    return parseInt(b.bvtFailed)||0;
+  };
+
+  const byComponent = {};
+  _ebrLastFilteredBuilds.forEach(b => {
+    const k = b.component || 'Unassigned';
+    byComponent[k] = (byComponent[k] || 0) + getVal(b);
+  });
+  const compNames = Object.keys(byComponent).sort((a,b) => byComponent[b] - byComponent[a]);
+  const grandTotal = compNames.reduce((s,c) => s + byComponent[c], 0);
+
+  document.getElementById('engBuildBreakdownTitle').textContent = labels[metric] + ' — by component';
+  const body = document.getElementById('engBuildBreakdownBody');
+  if (compNames.length === 0) {
+    body.innerHTML = '<div style="font-size:13px;color:var(--text-faint);font-style:italic;text-align:center;padding:16px;">No data for the current filter.</div>';
+  } else {
+    body.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+      compNames.map(c => {
+        const pct = grandTotal > 0 ? Math.round((byComponent[c] / grandTotal) * 100) : 0;
+        return '<tr style="border-bottom:1px solid var(--border-soft);"><td style="padding:8px 4px;">' + escapeHtml(c) + '</td>' +
+          '<td style="padding:8px 4px;width:60%;"><div style="background:var(--panel-2);border-radius:6px;overflow:hidden;height:8px;"><div style="background:linear-gradient(135deg,#7c3aed,#2563eb);height:100%;width:' + pct + '%;"></div></div></td>' +
+          '<td style="padding:8px 4px;text-align:right;font-weight:700;">' + byComponent[c] + '</td></tr>';
+      }).join('') +
+      '<tr><td style="padding:8px 4px;font-weight:700;">Grand total</td><td></td><td style="padding:8px 4px;text-align:right;font-weight:700;">' + grandTotal + '</td></tr>' +
+      '</table>';
+  }
+
+  const modalEl = document.getElementById('engBuildBreakdownModal');
+  if (modalEl && modalEl.parentElement !== document.body) document.body.appendChild(modalEl);
+  modalEl.classList.add('show');
+}
 
 function getEngBuildPeriodRange() {
+  if (ebrPeriod === 'custom') {
+    const fromVal = document.getElementById('ebrGaFrom')?.value;
+    const toVal = document.getElementById('ebrGaTo')?.value;
+    const start = fromVal ? new Date(fromVal + 'T00:00:00') : null;
+    const end = toVal ? new Date(toVal + 'T23:59:59') : null;
+    return { start, end };
+  }
   const today = new Date();
   let start = null, end = null;
   if (ebrPeriod === 'quarter') {
@@ -13928,10 +13992,10 @@ function setEngBuildPeriod(period) {
   renderEngBuildReport();
 }
 
+const MASTER_COMPONENT_LIST = ['Desktop Client', 'Mac Client', 'HotFolder Server', 'AppConnect Server', 'AppConnect Client', 'Classification Migration', 'iOS Device'];
+
 function getEngBuildComponents() {
-  const fromProjects = state.projects.map(p => p.component).filter(Boolean);
-  const fromBuilds = (state.engineeringBuilds || []).map(b => b.component).filter(Boolean);
-  return [...new Set([...fromProjects, ...fromBuilds])].sort();
+  return MASTER_COMPONENT_LIST;
 }
 
 function populateEngBuildFilters() {
@@ -13962,11 +14026,13 @@ function renderEngBuildReport() {
 
   let builds = state.engineeringBuilds;
   if (compFilter) builds = builds.filter(b => b.component === compFilter);
-  if (start && end) {
+  if (start || end) {
     builds = builds.filter(b => {
       if (!b.gaDate) return false;
       const d = new Date(b.gaDate + 'T00:00:00');
-      return d >= start && d <= end;
+      if (start && d < start) return false;
+      if (end && d > end) return false;
+      return true;
     });
   }
 
@@ -13974,12 +14040,13 @@ function renderEngBuildReport() {
   const grandPlanned = builds.reduce((s,b) => s + (parseInt(b.plannedBuilds)||0), 0);
   const grandUnplanned = builds.reduce((s,b) => s + (parseInt(b.unplannedBuilds)||0), 0);
   const grandBvt = builds.reduce((s,b) => s + (parseInt(b.bvtFailed)||0), 0);
+  _ebrLastFilteredBuilds = builds;
   if (summaryEl) {
     summaryEl.innerHTML =
-      '<div class="stat-card" style="background:linear-gradient(135deg,rgba(15,118,110,0.08),rgba(8,145,178,0.05)); border:1px solid rgba(15,118,110,0.15);"><div class="label">📦 Total builds</div><div class="value" style="color:#0f766e;">' + grandTotal + '</div></div>' +
-      '<div class="stat-card" style="background:linear-gradient(135deg,rgba(37,99,235,0.08),rgba(37,99,235,0.03)); border:1px solid rgba(37,99,235,0.15);"><div class="label">✅ Planned</div><div class="value" style="color:#1d4ed8;">' + grandPlanned + '</div></div>' +
-      '<div class="stat-card" style="background:linear-gradient(135deg,rgba(217,119,6,0.08),rgba(234,179,8,0.04)); border:1px solid rgba(217,119,6,0.18);"><div class="label">⚡ Unplanned</div><div class="value" style="color:#b45309;">' + grandUnplanned + '</div></div>' +
-      '<div class="stat-card" style="background:linear-gradient(135deg,rgba(220,38,38,0.08),rgba(220,38,38,0.03)); border:1px solid rgba(220,38,38,0.18);"><div class="label">🚨 BVT failed</div><div class="value" style="color:#dc2626;">' + grandBvt + '</div></div>';
+      '<div class="stat-card" onclick="showEngBuildBreakdown(\'total\')" style="cursor:pointer;background:linear-gradient(135deg,rgba(15,118,110,0.08),rgba(8,145,178,0.05)); border:1px solid rgba(15,118,110,0.15);"><div class="label">📦 Total builds</div><div class="value" style="color:#0f766e;">' + grandTotal + '</div></div>' +
+      '<div class="stat-card" onclick="showEngBuildBreakdown(\'planned\')" style="cursor:pointer;background:linear-gradient(135deg,rgba(37,99,235,0.08),rgba(37,99,235,0.03)); border:1px solid rgba(37,99,235,0.15);"><div class="label">✅ Planned</div><div class="value" style="color:#1d4ed8;">' + grandPlanned + '</div></div>' +
+      '<div class="stat-card" onclick="showEngBuildBreakdown(\'unplanned\')" style="cursor:pointer;background:linear-gradient(135deg,rgba(217,119,6,0.08),rgba(234,179,8,0.04)); border:1px solid rgba(217,119,6,0.18);"><div class="label">⚡ Unplanned</div><div class="value" style="color:#b45309;">' + grandUnplanned + '</div></div>' +
+      '<div class="stat-card" onclick="showEngBuildBreakdown(\'bvt\')" style="cursor:pointer;background:linear-gradient(135deg,rgba(220,38,38,0.08),rgba(220,38,38,0.03)); border:1px solid rgba(220,38,38,0.18);"><div class="label">🚨 BVT failed</div><div class="value" style="color:#dc2626;">' + grandBvt + '</div></div>';
   }
 
   if (builds.length === 0) {
@@ -14111,34 +14178,34 @@ function updateEngBuildSuggestions() {
   const manualSel = document.getElementById('ebManualTagSelect');
   if (!listEl) return;
 
-  // Already-tagged items — shown with a remove option
+  // Already-tagged items — shown as neatly aligned chips with a remove (×)
   listEl.innerHTML = ebSelectedTags.map(id => {
     const p = state.projects.find(pp => pp.id === id);
     if (!p) return '';
-    return '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;background:var(--panel);border-radius:8px;padding:6px 10px;">' +
-      '<input type="checkbox" checked onchange="removeEngBuildTag(\'' + id + '\')">' + escapeHtml(p.name) +
-    '</label>';
+    return '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;background:var(--panel);border:1px solid var(--border-soft);border-radius:20px;padding:5px 8px 5px 12px;">' +
+      escapeHtml(p.name) +
+      '<button type="button" onclick="removeEngBuildTag(\'' + id + '\')" title="Remove" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:13px;line-height:1;padding:2px;">✕</button>' +
+    '</span>';
   }).join('') || '<div style="font-size:12px;color:var(--text-faint);font-style:italic;">No release items tagged yet.</div>';
 
   if (manualSel) {
     if (component && gaDate) {
-      // Dropdown filtered to release items matching this component + GA date
       const matched = state.projects.filter(p => p.component === component && p.releaseDate === gaDate && !ebSelectedTags.includes(p.id));
       manualSel.disabled = false;
       manualSel.innerHTML = matched.length > 0
-        ? '<option value="">+ Select a release item…</option>' + matched.map(p => '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>').join('')
-        : '<option value="">No matching release items for this date</option>';
+        ? matched.map(p => '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>').join('')
+        : '<option value="" disabled>No matching release items for this date</option>';
     } else {
       manualSel.disabled = true;
       manualSel.innerHTML = '<option value="">Select component + GA date first…</option>';
     }
   }
-
 }
 
-function addManualEngBuildTag(projId) {
-  if (!projId) return;
-  if (!ebSelectedTags.includes(projId)) ebSelectedTags.push(projId);
+function addSelectedEngBuildTags(selectEl) {
+  Array.from(selectEl.selectedOptions).forEach(opt => {
+    if (opt.value && !ebSelectedTags.includes(opt.value)) ebSelectedTags.push(opt.value);
+  });
   updateEngBuildSuggestions();
 }
 
@@ -14195,11 +14262,13 @@ function openEngBuildReportInTab() {
 
   let builds = state.engineeringBuilds || [];
   if (compFilter) builds = builds.filter(b => b.component === compFilter);
-  if (start && end) {
+  if (start || end) {
     builds = builds.filter(b => {
       if (!b.gaDate) return false;
       const d = new Date(b.gaDate + 'T00:00:00');
-      return d >= start && d <= end;
+      if (start && d < start) return false;
+      if (end && d > end) return false;
+      return true;
     });
   }
   if (builds.length === 0) { showToastMsg('No build entries to export for this filter'); return; }
