@@ -2212,6 +2212,7 @@
               <th>Release</th>
               <th>Test plan</th>
               <th>Daily plan</th>
+              <th style="white-space:nowrap;">Engg build report</th>
               <th>Leave</th>
               <th>Holidays</th>
               <th>Summary</th>
@@ -3756,7 +3757,7 @@ let appInitialized = false;
 
 const DEFAULT_PERMISSIONS = {
   people: 'read', projects: 'read', testplan: 'read',
-  dailyplan: 'read', allocation: 'read', capacity: 'read',
+  dailyplan: 'read', buildreport: 'read', allocation: 'read', capacity: 'read',
   leave: 'read', holidays: 'read', summary: 'read',
   vmrepo: 'read', archive: 'read'
 };
@@ -7366,7 +7367,7 @@ function renderHelp() {
     <h1 style="font-family:'Inter Tight',sans-serif;font-size:28px;font-weight:800;margin:0 0 10px;letter-spacing:-0.03em;">TeamLens Help Center</h1>
     <p style="font-size:13.5px;opacity:0.88;margin:0;max-width:560px;line-height:1.7;">Complete guide to all features — releases, test plans, build tracking, daily planning, leave, VMs, chat, notifications, backup and more.</p>
     <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;">
-      ${[['13','Tabs'],['Real-time','Multi-user'],['Draft','& Publish'],['💬','Chat'],['💾','Backup']].map(([v,l])=>`
+      ${[['14','Tabs'],['Real-time','Multi-user'],['Draft','& Publish'],['💬','Chat'],['💾','Backup']].map(([v,l])=>`
         <div style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:10px;padding:10px 16px;">
           <div style="font-size:10px;opacity:0.75;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px;">${l}</div>
           <div style="font-size:18px;font-weight:800;">${v}</div>
@@ -7458,12 +7459,14 @@ function renderHelp() {
         <div style="font-size:11px;color:var(--text-faint);">Field-level tables — zero overwrite</div></div>
       </div>
       <div style="font-size:12px;color:var(--text-dim);line-height:1.85;">
+        <strong>Dimension checklist</strong> — scenarios/cases table, Excel import<br>
         Add environments with assignees, effort, status<br>
         Test Prep + Test Env/Data Prep sections<br>
-        Auto milestone calculation from build date<br>
+        <strong>Buffer</strong> — multiple reasons, each with its own PD<br>
+        Milestones incl. <strong>P1 completion</strong> — auto Done/Upcoming status<br>
         <strong>Draft & Publish</strong> — local save until ready<br>
-        Build delay → milestones shift → review resets<br>
         QA requests review → Lead approves → dates sync<br>
+        <strong>🔒 Move to Vault</strong> — one click once Done + Reviewed + Published<br>
         Download report / Open in new tab
       </div>
     </div>
@@ -7492,11 +7495,33 @@ function renderHelp() {
       </div>
       <div style="font-size:12px;color:var(--text-dim);line-height:1.9;">
         Day-wise grid per person per release<br>
-        🟢 <strong>Resource availability</strong> — next free date per person<br>
+        <strong>Multi-select POD filter</strong> — pick more than one POD at once<br>
+        📋 <strong>Copy / paste</strong> a cell's assignment to another cell<br>
+        📌 <strong>Key dates strip</strong> — Go ahead / QA completion at a glance<br>
+        📊 <strong>Release execution tracker</strong> — planned vs actual PD burned<br>
+        🧩 <strong>Merged build dates</strong> — component-wise key dates<br>
         Leave days auto-highlighted (PL=yellow, UPL=red)<br>
-        Task types: Test Scenario, Execution, BVT, + <strong>Custom</strong><br>
-        Hover cell → ✎ Edit / ✕ Remove<br>
-        Share report · ✨ AI Assistant
+        Hover cell → ✎ Edit / 📋 Copy / ✕ Remove<br>
+        Share report
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2b: Engg Build Report -->
+  <div style="display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:14px;">
+    <div class="panel" style="margin:0;border:1.5px solid #0891b233;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border-soft);">
+        <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#0f766e,#0891b2);display:flex;align-items:center;justify-content:center;font-size:17px;">🧩</div>
+        <div><div style="font-weight:700;font-size:13.5px;color:var(--text);">Engg Build Report</div>
+        <div style="font-size:11px;color:var(--text-faint);">Component-wise build history, planned vs unplanned</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:12px;color:var(--text-dim);line-height:1.9;">
+        <div>📦 Component-wise builds — GA date, version, owner</div>
+        <div>✅ Planned / ⚡ Unplanned / 🚨 BVT failed counts per build</div>
+        <div>🏷️ Tag release items to a build — multi-select</div>
+        <div>Click a summary card → component-wise breakdown</div>
+        <div>Filters — component, All time / This FY / custom GA date range</div>
+        <div>📊 View Report — opens a formatted report in a new tab</div>
       </div>
     </div>
   </div>
@@ -13706,7 +13731,11 @@ function renderDailyPlan() {
       const entries = state.dailyPlan.filter(e => e.personId === p.id && e.date === dateKey);
 
       if (nonWorking) {
-        html += `<div class="cal-cell" style="background-color:var(--panel-2);background-image:repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(100,116,139,0.06) 6px, rgba(100,116,139,0.06) 12px);color:var(--text-faint);opacity:0.5;text-align:left;padding-left:10px;">${holidayMatch?escapeHtml(holidayMatch.name):''}</div>`;
+        if (holidayMatch) {
+          html += `<div class="cal-cell" style="background-color:rgba(245,158,11,0.12);border-left:2px solid #f59e0b;color:#b45309;font-weight:600;font-size:11px;text-align:left;padding-left:10px;">🎉 ${escapeHtml(holidayMatch.name)}</div>`;
+        } else {
+          html += `<div class="cal-cell" style="background-color:var(--panel-2);background-image:repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(100,116,139,0.06) 6px, rgba(100,116,139,0.06) 12px);color:var(--text-faint);opacity:0.5;text-align:left;padding-left:10px;"></div>`;
+        }
       } else if (onLeave && leaveType !== 'WFH') {
         const leaveBg    = leaveType === 'UPL' ? '#fef2f2' : '#fefce8';
         const leaveBorder= leaveType === 'UPL' ? '#fecaca' : '#fde68a';
@@ -14162,6 +14191,18 @@ function populateEngBuildFilters() {
 }
 
 function renderEngBuildReport() {
+  try {
+    renderEngBuildReportInner();
+  } catch (err) {
+    console.error('[Engg Build Report] Render error:', err);
+    const list = document.getElementById('ebrList');
+    const summaryEl = document.getElementById('ebrSummaryCards');
+    if (summaryEl) summaryEl.innerHTML = '';
+    if (list) list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-faint);font-style:italic;font-size:13px;">Something went wrong loading this — try switching tabs and coming back, or refresh the page.</div>';
+  }
+}
+
+function renderEngBuildReportInner() {
   if (!state.engineeringBuilds) state.engineeringBuilds = [];
   populateEngBuildFilters();
   const list = document.getElementById('ebrList');
