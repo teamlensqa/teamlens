@@ -14326,7 +14326,7 @@ function renderEngBuildReportInner() {
     }).join('');
 
     return '<div class="panel" style="margin-bottom:0;padding:0;overflow:hidden;border-left:3px solid #0891b2;">' +
-      '<div onclick="toggleAccPanel(\'' + accId + '\')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;">' +
+      '<div onclick="toggleAccPanel(\'' + accId + '\')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;flex-wrap:wrap;row-gap:6px;">' +
         '<div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#0f766e,#0891b2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">' + getComponentIcon(comp) + '</div>' +
         '<div style="flex:1;min-width:0;font-size:14px;font-weight:700;">' + escapeHtml(comp) + '</div>' +
         '<div style="display:flex;gap:14px;font-size:12px;color:var(--text-faint);flex-shrink:0;flex-wrap:wrap;">' +
@@ -14338,15 +14338,15 @@ function renderEngBuildReportInner() {
         '<span id="' + accId + '-ch" style="font-size:11px;color:var(--text-faint);">▼</span>' +
       '</div>' +
       '<div id="' + accId + '" style="display:none;padding:0 16px 14px;overflow-x:auto;overflow-y:auto;max-height:420px;">' +
-        '<table style="width:100%;min-width:850px;border-collapse:collapse;table-layout:fixed;">' +
+        '<table style="width:100%;min-width:1000px;border-collapse:collapse;table-layout:fixed;">' +
           '<colgroup>' +
-            '<col style="width:90px;">' +
-            '<col style="width:90px;">' +
-            '<col style="width:70px;">' +
-            '<col style="width:80px;">' +
-            '<col style="width:70px;">' +
+            '<col style="width:110px;">' +
+            '<col style="width:120px;">' +
+            '<col style="width:110px;">' +
+            '<col style="width:110px;">' +
+            '<col style="width:110px;">' +
             '<col>' +
-            '<col style="width:90px;">' +
+            '<col style="width:110px;">' +
             '<col style="width:140px;">' +
             '<col style="width:60px;">' +
           '</colgroup>' +
