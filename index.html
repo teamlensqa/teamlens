@@ -1219,6 +1219,7 @@
             <button class="action" style="padding:5px 12px; font-size:12px; background:linear-gradient(135deg,#dc2626,#b91c1c); box-shadow:0 2px 6px rgba(220,38,38,0.35);" onclick="bulkDelete()">🗑 Delete selected</button>
             <button class="ghost" style="padding:5px 10px; font-size:12px;" onclick="clearBulkSelection()">✕ Cancel</button>
           </div>
+          <button class="ghost" onclick="openComponentsModal()">⚙️ Manage Components</button>
           <button id="addReleaseBtn" class="action" onclick="openProjectModal()">+ Add release item</button>
         </div>
       </div>
@@ -1241,13 +1242,6 @@
                 Component
                 <select onchange="setComponentFilter(this.value || null)" id="componentFilterSelect" style="display:block; margin-top:4px; width:100%; font-size:10px; padding:3px 6px; border-radius:6px; border:1px solid rgba(0,0,0,0.1); background:#f1f5f9; color:#475569; font-weight:500; cursor:pointer;">
                   <option value="">All</option>
-                  <option>Desktop Client</option>
-                  <option>Mac Client</option>
-                  <option>HotFolder Server</option>
-                  <option>AppConnect Server</option>
-                  <option>AppConnect Client</option>
-                  <option>Classification Migration</option>
-                  <option>iOS Device</option>
                 </select>
               </th>
 
@@ -2110,6 +2104,22 @@
     </div>
   </div>
 
+  <!-- Manage Components Modal -->
+  <div class="modal-overlay" id="componentsModal">
+    <div class="modal" style="width:440px;">
+      <h3>⚙️ Manage Components — <span id="componentsModalTeam" style="color:var(--accent);"></span></h3>
+      <div class="desc" style="margin-bottom:16px; font-size:12.5px; color:var(--text-faint);">These components are specific to your current team. Add, rename, or remove them here.</div>
+      <div id="componentsListModal" style="display:flex; flex-direction:column; gap:8px; max-height:320px; overflow-y:auto; margin-bottom:16px;"></div>
+      <div style="display:flex; gap:8px;">
+        <input id="componentNewInput" placeholder="New component name…" style="flex:1;" onkeydown="if(event.key==='Enter') addComponentFromModal()">
+        <button class="action" onclick="addComponentFromModal()" style="white-space:nowrap;">+ Add component</button>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" onclick="closeModal('componentsModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- VM Modal -->
   <div class="modal-overlay" id="vmModal">
     <div class="modal" style="width:480px;">
@@ -2369,13 +2379,6 @@
                 Component
                 <select onchange="setSummaryComponentFilter(this.value || null)" id="summaryComponentSelect" style="display:block; margin-top:4px; width:100%; font-size:10px; padding:3px 6px; border-radius:6px; border:1px solid rgba(0,0,0,0.1); background:#f1f5f9; color:#475569; font-weight:500; cursor:pointer;">
                   <option value="">All</option>
-                  <option>Desktop Client</option>
-                  <option>Mac Client</option>
-                  <option>HotFolder Server</option>
-                  <option>AppConnect Server</option>
-                  <option>AppConnect Client</option>
-                  <option>Classification Migration</option>
-                  <option>iOS Device</option>
                 </select>
               </th>
 
@@ -2469,13 +2472,6 @@
       <label>Component</label>
       <select id="projComponent">
         <option value="">— Select component —</option>
-        <option value="Desktop Client">Desktop Client</option>
-        <option value="Mac Client">Mac Client</option>
-        <option value="HotFolder Server">HotFolder Server</option>
-        <option value="AppConnect Server">AppConnect Server</option>
-        <option value="AppConnect Client">AppConnect Client</option>
-        <option value="Classification Migration">Classification Migration</option>
-        <option value="iOS Device">iOS Device</option>
       </select>
     </div>
 
@@ -3120,6 +3116,62 @@ async function deleteVMPodDB(id) {
   } catch(e) { console.warn('deleteVMPodDB error:', e); showToastMsg('❌ Could not delete group'); return false; }
 }
 
+// ── Components — team-scoped ──
+async function loadComponents() {
+  if (!sbClient) return;
+  try {
+    const { data, error } = await sbClient
+      .from('components')
+      .select('*')
+      .eq('team_id', currentTeamId || 'agent-qa')
+      .order('sort_order', { ascending: true });
+    if (error) throw error;
+    componentsList = data || [];
+  } catch(e) { console.warn('loadComponents error:', e); }
+}
+
+async function addComponentDB(name) {
+  if (!sbClient || !name) return false;
+  if (componentsList.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+    showToastMsg('⚠ A component with that name already exists');
+    return false;
+  }
+  try {
+    const newComp = { id: uid(), name, team_id: currentTeamId || 'agent-qa', sort_order: componentsList.length };
+    const { error } = await sbClient.from('components').insert(newComp);
+    if (error) throw error;
+    componentsList.push(newComp);
+    return true;
+  } catch(e) { console.warn('addComponentDB error:', e); showToastMsg('❌ Could not add component'); return false; }
+}
+
+async function renameComponentDB(id, newName) {
+  if (!sbClient || !id || !newName) return false;
+  try {
+    const { error } = await sbClient.from('components').update({ name: newName }).eq('id', id);
+    if (error) throw error;
+    const comp = componentsList.find(c => c.id === id);
+    if (comp) {
+      const oldName = comp.name;
+      comp.name = newName;
+      state.projects.forEach(p => { if (p.component === oldName) { p.component = newName; saveRelease(p); } });
+      (state.engineeringBuilds || []).forEach(e => { if (e.component === oldName) { e.component = newName; saveEngBuildRow(e); } });
+      (state.mergedBuildDates || []).forEach(r => { if (r.component === oldName) { r.component = newName; saveMergedBuildDateRow(r); } });
+    }
+    return true;
+  } catch(e) { console.warn('renameComponentDB error:', e); showToastMsg('❌ Could not rename component'); return false; }
+}
+
+async function deleteComponentDB(id) {
+  if (!sbClient || !id) return false;
+  try {
+    const { error } = await sbClient.from('components').delete().eq('id', id);
+    if (error) throw error;
+    componentsList = componentsList.filter(c => c.id !== id);
+    return true;
+  } catch(e) { console.warn('deleteComponentDB error:', e); showToastMsg('❌ Could not delete component'); return false; }
+}
+
 async function loadEngineeringBuilds() {
   if (!sbClient) return;
   try {
@@ -3422,6 +3474,22 @@ function initSeparateTableRealtime() {
         else vmPodsList.push(pod);
       }
       populateVMPodDropdowns();
+      renderAll();
+    }).subscribe();
+
+  // Components realtime
+  sbClient.channel('components-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'components' }, (payload) => {
+      if (payload.eventType === 'DELETE') {
+        componentsList = componentsList.filter(c => c.id !== payload.old?.id);
+      } else {
+        const comp = payload.new;
+        if (!comp || (comp.team_id && comp.team_id !== currentTeamId)) return;
+        const idx = componentsList.findIndex(c => c.id === comp.id);
+        if (idx >= 0) componentsList[idx] = comp;
+        else componentsList.push(comp);
+      }
+      populateComponentDropdowns();
       renderAll();
     }).subscribe();
 
@@ -4147,6 +4215,7 @@ let currentUserTeamIds = ['agent-qa']; // teams this user belongs to
 let currentTeamId = null;              // the ACTIVE team for this session
 let devPodsList = []; // [{id, name, team_id}] for the active team, loaded fresh on team switch
 let vmPodsList = [];  // [{id, name, team_id}] VM groups for the active team
+let componentsList = []; // [{id, name, team_id}] Components for the active team
 const POD_PALETTE = [
   ['#dbeafe','#1d4ed8'], ['#dcfce7','#15803d'], ['#fce7f3','#9d174d'],
   ['#fef3c7','#b45309'], ['#fee2e2','#b91c1c'], ['#f3e8ff','#7e22ce'],
@@ -5377,9 +5446,11 @@ async function loadState() {
         loadEngineeringBuilds(),
         loadReviewRequests(),
         loadDevPods(),
-        loadVMPods()
+        loadVMPods(),
+        loadComponents()
       ]);
       populateDevPodDropdowns();
+      populateComponentDropdowns();
       // One-time migration: if the new dedicated tables came back empty but
       // the old shared blob had data, copy it over so nothing is lost.
       migrateBuildDataToSeparateTables(_oldMergedBuildDates, _oldEngineeringBuilds, _oldReviewRequests);
@@ -7474,6 +7545,30 @@ function getVMPods() {
   return vmPodsList.map(p => p.name);
 }
 
+function populateComponentDropdowns() {
+  const comps = getEngBuildComponents();
+  const opts = comps.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+
+  const filterSel = document.getElementById('componentFilterSelect');
+  if (filterSel) {
+    const cur = filterSel.value;
+    filterSel.innerHTML = '<option value="">All</option>' + opts;
+    filterSel.value = comps.includes(cur) ? cur : '';
+  }
+  const summarySel = document.getElementById('summaryComponentSelect');
+  if (summarySel) {
+    const cur = summarySel.value;
+    summarySel.innerHTML = '<option value="">All</option>' + opts;
+    summarySel.value = comps.includes(cur) ? cur : '';
+  }
+  const projSel = document.getElementById('projComponent');
+  if (projSel) {
+    const cur = projSel.value;
+    projSel.innerHTML = '<option value="">— Select component —</option>' + opts;
+    projSel.value = comps.includes(cur) ? cur : '';
+  }
+}
+
 function populateDevPodDropdowns() {
   const pods = getAllPodNames();
   const optsPlain = pods.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
@@ -7591,6 +7686,82 @@ async function deleteDevPodFromModal(id) {
     renderDevPodsListModal();
     populateDevPodDropdowns();
     showToastMsg(`✓ POD "${pod.name}" deleted`);
+  }
+}
+
+function openComponentsModal() {
+  renderComponentsListModal();
+  const teamLabel = document.getElementById('componentsModalTeam');
+  if (teamLabel) teamLabel.textContent = TEAM_NAMES[currentTeamId] || currentTeamId;
+  document.getElementById('componentsModal').classList.add('show');
+}
+
+function renderComponentsListModal() {
+  const listEl = document.getElementById('componentsListModal');
+  if (!listEl) return;
+  if (componentsList.length === 0) {
+    listEl.innerHTML = '<div style="color:var(--text-faint); text-align:center; padding:16px; font-style:italic;">No components yet for this team. Add one below.</div>';
+    return;
+  }
+  listEl.innerHTML = componentsList.map((comp) => {
+    const usageCount = state.projects.filter(p => p.component === comp.name).length;
+    return `
+      <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--panel-2); border:1px solid var(--border-soft); border-radius:10px;">
+        <span style="font-size:16px; flex-shrink:0;">${getComponentIcon(comp.name)}</span>
+        <span style="font-size:12.5px; font-weight:600; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(comp.name)}</span>
+        <span style="font-size:11px; color:var(--text-faint); white-space:nowrap; flex-shrink:0;">${usageCount} release${usageCount !== 1 ? 's' : ''}</span>
+        <button onclick="renameComponentFromModal('${comp.id}')" class="icon-btn edit" title="Rename" style="flex-shrink:0;">✎</button>
+        <button onclick="deleteComponentFromModal('${comp.id}')" class="icon-btn" title="Delete" style="flex-shrink:0; ${usageCount > 0 ? 'opacity:0.4; cursor:not-allowed;' : ''}">✕</button>
+      </div>`;
+  }).join('');
+}
+
+async function addComponentFromModal() {
+  const input = document.getElementById('componentNewInput');
+  const name = input.value.trim();
+  if (!name) return;
+  const ok = await addComponentDB(name);
+  if (ok) {
+    input.value = '';
+    renderComponentsListModal();
+    populateComponentDropdowns();
+    showToastMsg(`✓ Component "${name}" added to ${TEAM_NAMES[currentTeamId] || currentTeamId}`);
+  }
+}
+
+async function renameComponentFromModal(id) {
+  const comp = componentsList.find(c => c.id === id);
+  if (!comp) return;
+  const newName = prompt(`Rename component "${comp.name}" to:`, comp.name);
+  if (!newName || newName.trim() === comp.name) return;
+  const trimmed = newName.trim();
+  if (componentsList.some(c => c.id !== id && c.name.toLowerCase() === trimmed.toLowerCase())) {
+    alert('A component with that name already exists.'); return;
+  }
+  const oldName = comp.name;
+  const ok = await renameComponentDB(id, trimmed);
+  if (ok) {
+    renderComponentsListModal();
+    populateComponentDropdowns();
+    renderProjects();
+    showToastMsg(`✓ Renamed "${oldName}" → "${trimmed}"`);
+  }
+}
+
+async function deleteComponentFromModal(id) {
+  const comp = componentsList.find(c => c.id === id);
+  if (!comp) return;
+  const usageCount = state.projects.filter(p => p.component === comp.name).length;
+  if (usageCount > 0) {
+    alert(`Cannot delete "${comp.name}" — ${usageCount} release item(s) use it. Reassign them first.`);
+    return;
+  }
+  if (!confirm(`Delete component "${comp.name}"?`)) return;
+  const ok = await deleteComponentDB(id);
+  if (ok) {
+    renderComponentsListModal();
+    populateComponentDropdowns();
+    showToastMsg(`✓ Component "${comp.name}" deleted`);
   }
 }
 
@@ -8713,6 +8884,7 @@ function openProjectModal(id) {
   populateGoAheadBySelect('');
   populateQaLeadSelect('');
   populateDevPodDropdowns();
+  populateComponentDropdowns();
 
   if (id) {
     const proj = state.projects.find(p => p.id === id);
@@ -14805,7 +14977,6 @@ function setEngBuildPeriod(period) {
   renderEngBuildReport();
 }
 
-const MASTER_COMPONENT_LIST = ['Desktop Client', 'Mac Client', 'HotFolder Server', 'AppConnect Server', 'AppConnect Client', 'Classification Migration', 'iOS Device'];
 const COMPONENT_ICONS = {
   'Desktop Client': '🖥️',
   'Mac Client': '🍏',
@@ -14818,7 +14989,7 @@ const COMPONENT_ICONS = {
 function getComponentIcon(comp) { return COMPONENT_ICONS[comp] || '🧩'; }
 
 function getEngBuildComponents() {
-  return MASTER_COMPONENT_LIST;
+  return componentsList.map(c => c.name);
 }
 
 function populateEngBuildFilters() {
