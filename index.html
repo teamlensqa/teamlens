@@ -14289,7 +14289,7 @@ function renderEngBuildReportInner() {
     const bvt = entries.reduce((s,e) => s + (parseInt(e.bvtFailed)||0), 0);
     const accId = 'ebr-' + comp.replace(/[^a-zA-Z0-9]/g,'_');
 
-    const rowsHtml = entries.map(e => {
+    const rowsHtml = entries.map((e, rowIdx) => {
       const tags = (e.taggedItemIds || []).map(id => {
         const p = state.projects.find(pp => pp.id === id);
         return p ? '<span style="font-size:11px;background:#f3e8ff;color:#7e22ce;padding:2px 9px;border-radius:20px;font-weight:600;white-space:nowrap;display:inline-block;margin:1px;">' + escapeHtml(p.name) + '</span>' : '';
@@ -14299,10 +14299,12 @@ function renderEngBuildReportInner() {
           '<button onclick="deleteEngBuildEntry(\'' + e.id + '\')" title="Delete" style="background:none;border:none;cursor:pointer;color:#dc2626;padding:2px 4px;">✕</button>'
         : '';
       const bvtVal = parseInt(e.bvtFailed) || 0;
+      const issueByColors = { QA: ['#e0e7ff','#4338ca'], Dev: ['#dcfce7','#15803d'], Customer: ['#fef3c7','#b45309'] };
+      const issueByC = issueByColors[e.issueBy] || ['var(--panel-2)','var(--text-dim)'];
       const issueByBadge = e.issueBy
-        ? '<span style="font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--panel-2);color:var(--text-dim);white-space:nowrap;">' + escapeHtml(e.issueBy) + '</span>'
+        ? '<span style="font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:20px;background:' + issueByC[0] + ';color:' + issueByC[1] + ';white-space:nowrap;">' + escapeHtml(e.issueBy) + '</span>'
         : '<span style="color:var(--text-faint);">—</span>';
-      return '<tr style="border-top:1px solid var(--border-soft);">' +
+      return '<tr style="border-top:1px solid var(--border-soft);background:' + (rowIdx % 2 === 0 ? 'transparent' : 'var(--panel-2)') + ';" onmouseenter="this.style.background=\'rgba(124,58,237,0.06)\'" onmouseleave="this.style.background=\'' + (rowIdx % 2 === 0 ? 'transparent' : 'var(--panel-2)') + '\'">' +
         '<td style="padding:8px 6px;font-size:12px;white-space:nowrap;">' + (e.gaDate ? formatDateDisplay(e.gaDate) : '—') + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(e.version||'—') + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + (e.plannedBuilds||0) + '</td>' +
@@ -14336,7 +14338,7 @@ function renderEngBuildReportInner() {
         '<span id="' + accId + '-ch" style="font-size:11px;color:var(--text-faint);">▼</span>' +
       '</div>' +
       '<div id="' + accId + '" style="display:none;padding:0 16px 14px;overflow-x:auto;overflow-y:auto;max-height:420px;">' +
-        '<table style="width:100%;min-width:920px;border-collapse:collapse;table-layout:fixed;">' +
+        '<table style="width:940px;border-collapse:collapse;table-layout:fixed;">' +
           '<colgroup>' +
             '<col style="width:90px;">' +
             '<col style="width:90px;">' +
