@@ -7363,6 +7363,12 @@ function toggleVMInUseRow(id) {
   const vm = (state.vms || []).find(v => v.id === id);
   if (!vm) return;
   vm.inUse = !vm.inUse;
+  // If turning back "in use" and the old end date has already passed,
+  // clear it — otherwise the auto-free check immediately flips it back
+  // to free the next time it runs, undoing this toggle.
+  if (vm.inUse && vm.endDate && vm.endDate < toDateKey(new Date())) {
+    vm.endDate = '';
+  }
   saveVMRecord(vm);
   renderVMRepo();
 }
