@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- TeamLens build marker: 2026-09-11-v6 -->
+<!-- TeamLens build marker: 2026-09-11-v7-archive-expand-fix -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -13035,19 +13035,8 @@ function renderArchive() {
   const podPills = document.getElementById('archivePodPills');
   if (!content) return;
 
-  // Archive = Release status Completed + sab test plan environments Done (if plan exists)
-  const completed = state.projects.filter(p => {
-    if (p.status !== 'Completed') return false;
-    const plan = state.testPlans && state.testPlans[p.id];
-    // If no plan exists or no rows — still show in vault (status = Completed is enough)
-    if (!plan || !plan.rows || plan.rows.length === 0) return true;
-    const allStatuses = [
-      plan.testPrepStatus || 'Not yet started',
-      plan.testEnvStatus  || 'Not yet started',
-      ...plan.rows.map(r => r.status || 'Not yet started')
-    ];
-    return allStatuses.every(s => s === 'Done');
-  });
+  // Archive = Release status Completed (test plan done-status shown as a badge, not used to hide items)
+  const completed = state.projects.filter(p => p.status === 'Completed');
 
   if (completed.length === 0) {
     content.innerHTML = '';
@@ -13201,6 +13190,7 @@ function renderArchive() {
 (proj.component ? '<span style="background:#f0fdf4;color:#15803d;padding:2px 9px;border-radius:5px;font-size:11px;font-weight:600;">'+escapeHtml(proj.component)+'</span>' : '') +
 (proj.devPod ? '<span style="background:'+podC[0]+';color:'+podC[1]+';padding:2px 9px;border-radius:5px;font-size:11px;font-weight:600;">' + escapeHtml(proj.devPod) + '</span>' : '') +
             '<span style="background:#dcfce7;color:#15803d;padding:2px 9px;border-radius:5px;font-size:11px;font-weight:600;">✅ Completed</span>' +
+            (total > 0 && done < total ? '<span style="background:#fef3c7;color:#b45309;padding:2px 9px;border-radius:5px;font-size:11px;font-weight:600;">⚠ Test plan not fully done (' + done + '/' + total + ')</span>' : '') +
           '</div>' +
           '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--text-faint);">' +
             (proj.releaseDate    ?'<span>📅 Release: <strong style="color:var(--text-dim);">'+formatDateDisplay(proj.releaseDate)+'</strong></span>':'') +
