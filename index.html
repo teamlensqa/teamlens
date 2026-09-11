@@ -1643,11 +1643,11 @@
               </colgroup>
               <thead>
                 <tr style="background:var(--panel-2); position:sticky; top:0;">
-                  <th style="padding:7px 8px; text-align:left;">Scenario</th>
-                  <th style="padding:7px 8px; text-align:left;">Sub-scenario</th>
-                  <th style="padding:7px 8px; text-align:left;">Test cases</th>
-                  <th style="padding:7px 8px; text-align:right;">Count</th>
-                  <th style="padding:7px 8px; text-align:left;">Priority</th>
+                  <th style="padding:7px 8px; text-align:left; color:var(--text-dim);">Scenario</th>
+                  <th style="padding:7px 8px; text-align:left; color:var(--text-dim);">Sub-scenario</th>
+                  <th style="padding:7px 8px; text-align:left; color:var(--text-dim);">Test cases</th>
+                  <th style="padding:7px 8px; text-align:right; color:var(--text-dim);">Count</th>
+                  <th style="padding:7px 8px; text-align:left; color:var(--text-dim);">Priority</th>
                   <th id="dcActionHeader" style="padding:7px 8px;"></th>
                 </tr>
               </thead>
@@ -9418,10 +9418,10 @@ function renderDimensionChecklistViewGrid() {
     const prioColors = { P1: '#dc2626;background:#fee2e2', P2: '#b45309;background:#fef3c7', P3: '#15803d;background:#dcfce7' };
     body.innerHTML = rows.map(r => `
       <tr style="border-top:1px solid var(--border-soft);">
-        <td style="padding:8px; vertical-align:top; white-space:pre-wrap;">${escapeHtml(r.scenario||'—')}</td>
-        <td style="padding:8px; vertical-align:top; white-space:pre-wrap;">${escapeHtml(r.subScenario||'—')}</td>
-        <td style="padding:8px; vertical-align:top; white-space:pre-wrap;">${escapeHtml(r.testCases||'—')}</td>
-        <td style="padding:8px; vertical-align:top; text-align:right;">${r.count||0}</td>
+        <td style="padding:8px; vertical-align:top; white-space:pre-wrap; color:var(--text);">${escapeHtml(r.scenario||'—')}</td>
+        <td style="padding:8px; vertical-align:top; white-space:pre-wrap; color:var(--text);">${escapeHtml(r.subScenario||'—')}</td>
+        <td style="padding:8px; vertical-align:top; white-space:pre-wrap; color:var(--text);">${escapeHtml(r.testCases||'—')}</td>
+        <td style="padding:8px; vertical-align:top; text-align:right; color:var(--text);">${r.count||0}</td>
         <td style="padding:8px; vertical-align:top;"><span style="padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;color:${(prioColors[r.priority]||'').split(';')[0]};${(prioColors[r.priority]||'').split(';')[1]||''}">${escapeHtml(r.priority||'—')}</span></td>
         <td></td>
       </tr>`).join('');
@@ -13468,6 +13468,20 @@ function dpDragLeave(event) {
   event.currentTarget.classList.remove('dp-drag-over');
 }
 
+function dpCloseAllActionMenus() {
+  document.querySelectorAll('[id^="dpmenu-"]').forEach(m => { m.style.display = 'none'; });
+}
+
+function dpToggleActionMenu(menuId) {
+  const menu = document.getElementById(menuId);
+  if (!menu) return;
+  const opening = menu.style.display !== 'block';
+  dpCloseAllActionMenus();
+  if (opening) menu.style.display = 'block';
+}
+
+document.addEventListener('click', () => dpCloseAllActionMenus());
+
 function dpCopyEntry(entryId) {
   const e = state.dailyPlan.find(x => x.id === entryId);
   if (!e) return;
@@ -13752,10 +13766,14 @@ function renderDailyPlan() {
             ? `<div style="display:inline-flex;align-items:center;gap:3px;background:${color}18;border:1px solid ${color}35;border-radius:99px;padding:0px 6px;font-size:9.5px;font-weight:700;color:${color};margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;"><span>${taskIcon}</span><span style="overflow:hidden;text-overflow:ellipsis;">${escapeHtml(e.task)}</span></div>`
             : '';
           const canEditDP = canEdit('dailyplan');
+          const menuId = 'dpmenu-' + e.id;
           const actionBtns = canEditDP
-            ? `<button title="Copy" onclick="event.stopPropagation();dpCopyEntry('${e.id}')" style="background:${color}18;border:none;border-radius:3px;cursor:pointer;padding:2px 5px;font-size:10px;color:${color};line-height:1;font-family:inherit;">📋</button>
-               <button title="Edit" onclick="event.stopPropagation();editDailyPlanEntry('${e.id}')" style="background:${color}25;border:none;border-radius:3px;cursor:pointer;padding:2px 5px;font-size:10px;color:${color};line-height:1;font-family:inherit;">✎</button>
-               <button title="Remove" onclick="event.stopPropagation();clearDailyPlanCell('${p.id}','${dateKey}','${e.id}')" style="background:#fee2e2;border:none;border-radius:3px;cursor:pointer;padding:2px 5px;font-size:10px;color:#dc2626;line-height:1;font-family:inherit;">✕</button>`
+            ? `<button title="More actions" onclick="event.stopPropagation();dpToggleActionMenu('${menuId}')" style="background:${color}20;border:none;border-radius:3px;cursor:pointer;padding:2px 6px;font-size:11px;color:${color};line-height:1;font-family:inherit;">⋮</button>
+               <div id="${menuId}" style="display:none;position:absolute;top:100%;right:0;margin-top:2px;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:50;min-width:110px;overflow:hidden;">
+                 <button onclick="event.stopPropagation();dpCloseAllActionMenus();editDailyPlanEntry('${e.id}')" style="display:flex;align-items:center;gap:6px;width:100%;background:none;border:none;cursor:pointer;padding:6px 10px;font-size:11.5px;color:var(--text);font-family:inherit;text-align:left;">✎ Edit</button>
+                 <button onclick="event.stopPropagation();dpCloseAllActionMenus();dpCopyEntry('${e.id}')" style="display:flex;align-items:center;gap:6px;width:100%;background:none;border:none;cursor:pointer;padding:6px 10px;font-size:11.5px;color:var(--text);font-family:inherit;text-align:left;">📋 Copy</button>
+                 <button onclick="event.stopPropagation();dpCloseAllActionMenus();clearDailyPlanCell('${p.id}','${dateKey}','${e.id}')" style="display:flex;align-items:center;gap:6px;width:100%;background:none;border:none;cursor:pointer;padding:6px 10px;font-size:11.5px;color:#dc2626;font-family:inherit;text-align:left;">✕ Remove</button>
+               </div>`
             : '';
           const dragHandle = canEditDP ? `<span title="Drag to move" style="cursor:grab;font-size:9px;color:${color};opacity:0.5;margin-right:2px;line-height:1;">⠿</span>` : '';
           return `<div
@@ -13764,18 +13782,15 @@ function renderDailyPlan() {
             style="background:${color}12;border-left:2.5px solid ${color};border-radius:0 4px 4px 0;margin:1px 0;padding:2px 4px 2px 5px;position:relative;${canEditDP?'cursor:grab;':''}"
             onmouseenter="this.querySelector('.dp-actions').style.display='flex'"
             onmouseleave="this.querySelector('.dp-actions').style.display='none'">
-            <div class="dp-proj-name" onmouseenter="dpScrollText(this,true)" onmouseleave="dpScrollText(this,false)" style="font-size:11px;font-weight:600;color:${color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:${canEditDP?32:4}px;line-height:1.2;">${dragHandle}<span class="dp-proj-text">${escapeHtml(e.project)}</span></div>
+            <div class="dp-proj-name" onmouseenter="dpScrollText(this,true)" onmouseleave="dpScrollText(this,false)" style="font-size:11px;font-weight:600;color:${color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:${canEditDP?20:4}px;line-height:1.2;">${dragHandle}<span class="dp-proj-text">${escapeHtml(e.project)}</span></div>
             ${taskBadge}
             <div class="dp-actions" style="display:none;position:absolute;top:2px;right:2px;gap:2px;align-items:center;">${actionBtns}</div>
           </div>`;
         }).join('');
-        const pasteBtn = (_dpClipboard && canEdit('dailyplan'))
-          ? `<button title="Paste '${escapeHtml(_dpClipboard.project)}' here" onclick="event.stopPropagation();dpPasteEntry('${p.id}','${dateKey}')" style="display:block;width:100%;text-align:center;background:#f3e8ff;color:#7e22ce;border:none;border-top:1px dashed #d8b4fe;border-radius:0 0 4px 4px;cursor:pointer;font-size:9.5px;padding:1px 0;margin-top:1px;">📌 Paste</button>`
-          : '';
         html += `<div class="cal-cell day-cell dp-drop-zone"
           data-person-id="${p.id}" data-date="${dateKey}"
           ondragover="dpDragOver(event)" ondragleave="dpDragLeave(event)" ondrop="dpDrop(event,'${p.id}','${dateKey}')"
-          style="text-align:left;padding:2px 3px;">${segs}${pasteBtn}</div>`;
+          style="text-align:left;padding:2px 3px;">${segs}</div>`;
       } else {
         const canEditDP2 = canEdit('dailyplan');
         const showPaste = _dpClipboard && canEditDP2;
