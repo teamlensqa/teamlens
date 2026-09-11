@@ -1494,11 +1494,11 @@
         <div style="font-size:11px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px;">📝 Notes</div>
         <div class="field" style="margin-bottom:12px;">
           <label>⚠️ Reason for unplanned / BVT failure</label>
-          <textarea id="ebReason" rows="3" placeholder="What caused the unplanned build or BVT failure…" style="font-family:inherit; width:100%; resize:vertical; background:var(--panel); border-radius:8px; white-space:pre-wrap;"></textarea>
+          <textarea id="ebReason" rows="3" placeholder="What caused the unplanned build or BVT failure…" style="font-family:inherit; width:100%; resize:vertical; background:var(--panel); border-radius:8px; white-space:pre-wrap; color:var(--text);"></textarea>
         </div>
         <div class="field" style="margin-bottom:0;">
           <label>💬 Any other comments</label>
-          <textarea id="ebComments" rows="3" placeholder="Anything else worth noting for this build…" style="font-family:inherit; width:100%; resize:vertical; background:var(--panel); border-radius:8px; white-space:pre-wrap;"></textarea>
+          <textarea id="ebComments" rows="3" placeholder="Anything else worth noting for this build…" style="font-family:inherit; width:100%; resize:vertical; background:var(--panel); border-radius:8px; white-space:pre-wrap; color:var(--text);"></textarea>
         </div>
       </div>
 
@@ -1803,12 +1803,12 @@
         </div>
         <table>
           <tbody>
-            <tr><td style="width:280px; color:var(--text-dim);">📦 Build pickup</td><td><input id="msBuildPickup" type="date" onchange="saveMilestones()" oninput="saveMilestones()"> <span id="msBuildPickupBadge"></span></td></tr>
-            <tr><td style="color:var(--text-dim);">🧪 BVT completion</td><td><input id="msBvtCompletion" type="date" onchange="saveMilestones()" oninput="saveMilestones()"> <span id="msBvtCompletionBadge"></span></td></tr>
-            <tr><td style="color:var(--text-dim);">🎯 P1 completion</td><td><input id="msP1Completion" type="date" onchange="saveMilestones()" oninput="saveMilestones()"> <span id="msP1CompletionBadge"></span></td></tr>
-            <tr><td style="color:var(--text-dim);">📊 Execution completion without buffer</td><td><input id="msExecNoBuffer" type="date" onchange="saveMilestones()" oninput="saveMilestones()"> <span id="msExecNoBufferBadge"></span></td></tr>
-            <tr><td style="color:var(--text-dim);">🏁 Execution completion with buffer</td><td><input id="msExecWithBuffer" type="date" onchange="saveMilestones()" oninput="saveMilestones()"> <span id="msExecWithBufferBadge"></span></td></tr>
-            <tr><td style="color:var(--text-dim);">🚀 Merged build go ahead</td><td><input id="msMergedBuildGoAhead" type="date" onchange="saveMilestones()" oninput="saveMilestones()"> <span id="msMergedBuildGoAheadBadge"></span></td></tr>
+            <tr><td style="width:280px; color:var(--text-dim);">📦 Build pickup</td><td><div style="display:flex;align-items:center;gap:8px;"><input id="msBuildPickup" type="date" onchange="saveMilestones()" oninput="saveMilestones()" style="width:160px;flex-shrink:0;"> <span id="msBuildPickupBadge"></span></div></td></tr>
+            <tr><td style="color:var(--text-dim);">🧪 BVT completion</td><td><div style="display:flex;align-items:center;gap:8px;"><input id="msBvtCompletion" type="date" onchange="saveMilestones()" oninput="saveMilestones()" style="width:160px;flex-shrink:0;"> <span id="msBvtCompletionBadge"></span></div></td></tr>
+            <tr><td style="color:var(--text-dim);">🎯 P1 completion</td><td><div style="display:flex;align-items:center;gap:8px;"><input id="msP1Completion" type="date" onchange="saveMilestones()" oninput="saveMilestones()" style="width:160px;flex-shrink:0;"> <span id="msP1CompletionBadge"></span></div></td></tr>
+            <tr><td style="color:var(--text-dim);">📊 Execution completion without buffer</td><td><div style="display:flex;align-items:center;gap:8px;"><input id="msExecNoBuffer" type="date" onchange="saveMilestones()" oninput="saveMilestones()" style="width:160px;flex-shrink:0;"> <span id="msExecNoBufferBadge"></span></div></td></tr>
+            <tr><td style="color:var(--text-dim);">🏁 Execution completion with buffer</td><td><div style="display:flex;align-items:center;gap:8px;"><input id="msExecWithBuffer" type="date" onchange="saveMilestones()" oninput="saveMilestones()" style="width:160px;flex-shrink:0;"> <span id="msExecWithBufferBadge"></span></div></td></tr>
+            <tr><td style="color:var(--text-dim);">🚀 Merged build go ahead</td><td><div style="display:flex;align-items:center;gap:8px;"><input id="msMergedBuildGoAhead" type="date" onchange="saveMilestones()" oninput="saveMilestones()" style="width:160px;flex-shrink:0;"> <span id="msMergedBuildGoAheadBadge"></span></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -9239,6 +9239,16 @@ function renderBufferRows() {
   if (!plan || !list) return;
   if (!Array.isArray(plan.buffer.rows)) plan.buffer.rows = [];
 
+  // Migrate an old single-number buffer value into a visible, editable
+  // reason row — otherwise it silently counted toward the total while
+  // never showing up (or being editable) in this panel.
+  const legacyEffort = parseFloat(plan.buffer.effort) || 0;
+  if (plan.buffer.rows.length === 0 && legacyEffort > 0) {
+    plan.buffer.rows.push({ id: uid(), reason: 'Buffer (migrated from earlier plan)', effort: legacyEffort });
+    plan.buffer.effort = 0;
+    saveBufferDraft();
+  }
+
   if (plan.buffer.rows.length === 0) {
     list.innerHTML = '<div style="font-size:12px;color:var(--text-faint);font-style:italic;">No buffer reasons added yet.</div>';
   } else {
@@ -9389,9 +9399,9 @@ function renderDimensionChecklistEditGrid() {
   } else {
     body.innerHTML = rows.map(r => `
       <tr>
-        <td style="padding:5px 6px; vertical-align:top;"><textarea rows="2" oninput="updateDimensionRow('${r.id}','scenario',this.value)" style="width:100%; font-size:12px; padding:5px 6px; resize:vertical; min-height:44px; font-family:inherit;">${escapeHtml(r.scenario||'')}</textarea></td>
-        <td style="padding:5px 6px; vertical-align:top;"><textarea rows="2" oninput="updateDimensionRow('${r.id}','subScenario',this.value)" style="width:100%; font-size:12px; padding:5px 6px; resize:vertical; min-height:44px; font-family:inherit;">${escapeHtml(r.subScenario||'')}</textarea></td>
-        <td style="padding:5px 6px; vertical-align:top;"><textarea rows="2" oninput="updateDimensionRow('${r.id}','testCases',this.value)" style="width:100%; font-size:12px; padding:5px 6px; resize:vertical; min-height:44px; font-family:inherit;">${escapeHtml(r.testCases||'')}</textarea></td>
+        <td style="padding:5px 6px; vertical-align:top;"><textarea rows="2" oninput="updateDimensionRow('${r.id}','scenario',this.value)" style="width:100%; font-size:12px; padding:5px 6px; resize:vertical; min-height:44px; font-family:inherit; color:var(--text);">${escapeHtml(r.scenario||'')}</textarea></td>
+        <td style="padding:5px 6px; vertical-align:top;"><textarea rows="2" oninput="updateDimensionRow('${r.id}','subScenario',this.value)" style="width:100%; font-size:12px; padding:5px 6px; resize:vertical; min-height:44px; font-family:inherit; color:var(--text);">${escapeHtml(r.subScenario||'')}</textarea></td>
+        <td style="padding:5px 6px; vertical-align:top;"><textarea rows="2" oninput="updateDimensionRow('${r.id}','testCases',this.value)" style="width:100%; font-size:12px; padding:5px 6px; resize:vertical; min-height:44px; font-family:inherit; color:var(--text);">${escapeHtml(r.testCases||'')}</textarea></td>
         <td style="padding:5px 6px; vertical-align:top;"><input type="number" min="0" value="${r.count||''}" oninput="updateDimensionRow('${r.id}','count',this.value)" style="width:100%; font-size:12px; padding:4px 6px; text-align:right;"></td>
         <td style="padding:5px 6px; vertical-align:top;">
           <select onchange="updateDimensionRow('${r.id}','priority',this.value)" style="width:100%; font-size:12px; padding:4px 6px;">
@@ -13943,28 +13953,32 @@ function renderMergedBuildDates() {
     ['releaseDate', 'Release date'],
   ];
 
-  const rowsHtml = monthRows.map(row => {
+  const rowsHtml = monthRows.map((row, idx) => {
+    const compIcon = row.component ? getComponentIcon(row.component) : '🧩';
     const compOptions = ['<option value="">— select —</option>']
       .concat(components.map(c => `<option value="${escapeHtml(c)}" ${row.component === c ? 'selected' : ''}>${escapeHtml(c)}</option>`))
       .join('');
     const compCell = canEditDP
-      ? `<select onchange="updateMergedBuildDateField('${row.id}','component',this.value)" style="font-size:12px;padding:4px 6px;">${compOptions}</select>`
-      : `<span style="background:#f0fdf4;color:#15803d;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;">${escapeHtml(row.component || '—')}</span>`;
-    const dateCells = fields.map(([key]) => canEditDP
-      ? `<td style="padding:6px 8px;"><input type="date" value="${row[key] || ''}" onchange="updateMergedBuildDateField('${row.id}','${key}',this.value)" style="font-size:12px;padding:4px 6px;"></td>`
-      : `<td style="padding:6px 8px;font-size:12px;">${row[key] ? formatDateDisplay(row[key]) : '—'}</td>`
-    ).join('');
+      ? `<div style="display:flex;align-items:center;gap:6px;"><span>${compIcon}</span><select onchange="updateMergedBuildDateField('${row.id}','component',this.value)" style="font-size:12px;padding:4px 6px;">${compOptions}</select></div>`
+      : `<span style="background:var(--bg-success,#f0fdf4);color:#15803d;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;">${compIcon} ${escapeHtml(row.component || '—')}</span>`;
+    const dateCells = fields.map(([key], i) => {
+      const isReleaseDate = key === 'releaseDate';
+      const cellBg = isReleaseDate ? 'background:rgba(21,128,61,0.06);' : '';
+      return canEditDP
+        ? `<td style="padding:8px;${cellBg}"><input type="date" value="${row[key] || ''}" onchange="updateMergedBuildDateField('${row.id}','${key}',this.value)" style="font-size:12px;padding:5px 7px;${isReleaseDate?'font-weight:600;color:#15803d;':''}"></td>`
+        : `<td style="padding:8px;font-size:12px;${cellBg}${isReleaseDate?'font-weight:600;color:#15803d;':''}">${row[key] ? formatDateDisplay(row[key]) : '—'}</td>`;
+    }).join('');
     const delBtn = canEditDP
-      ? `<td style="padding:6px 8px;"><button onclick="deleteMergedBuildDateRow('${row.id}')" title="Remove" style="background:#fee2e2;border:none;border-radius:4px;cursor:pointer;padding:3px 6px;font-size:11px;color:#dc2626;">✕</button></td>`
+      ? `<td style="padding:8px;"><button onclick="deleteMergedBuildDateRow('${row.id}')" title="Remove" style="background:#fee2e2;border:none;border-radius:99px;cursor:pointer;width:24px;height:24px;font-size:11px;color:#dc2626;">✕</button></td>`
       : '';
-    return `<tr>
-      <td style="padding:6px 8px;">${compCell}</td>
+    return `<tr style="background:${idx % 2 === 0 ? 'transparent' : 'var(--panel-2)'};">
+      <td style="padding:8px;">${compCell}</td>
       ${dateCells}
       ${delBtn}
     </tr>`;
   }).join('');
 
-  const headerCells = fields.map(([, label]) => `<th style="padding:8px;text-align:left;color:var(--text-faint);font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;">${label}</th>`).join('');
+  const headerCells = fields.map(([key, label]) => `<th style="padding:8px;text-align:left;color:${key==='releaseDate'?'#15803d':'var(--text-faint)'};font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;">${key==='releaseDate'?'🏁 ':''}${label}</th>`).join('');
 
   body.innerHTML = `<div style="overflow-x:auto;">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px;">
