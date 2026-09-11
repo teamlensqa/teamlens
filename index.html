@@ -14306,7 +14306,7 @@ function renderEngBuildReportInner() {
         : '<span style="color:var(--text-faint);">—</span>';
       return '<tr style="border-top:1px solid var(--border-soft);background:' + (rowIdx % 2 === 0 ? 'transparent' : 'var(--panel-2)') + ';" onmouseenter="this.style.background=\'rgba(124,58,237,0.06)\'" onmouseleave="this.style.background=\'' + (rowIdx % 2 === 0 ? 'transparent' : 'var(--panel-2)') + '\'">' +
         '<td style="padding:8px 6px;font-size:12px;white-space:nowrap;">' + (e.gaDate ? formatDateDisplay(e.gaDate) : '—') + '</td>' +
-        '<td style="padding:8px 6px;font-size:12px;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(e.version||'—') + '</td>' +
+        '<td style="padding:8px 6px;font-size:12px;white-space:normal;">' + escapeHtml(e.version||'—') + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + (e.plannedBuilds||0) + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + (e.unplannedBuilds||0) + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;' + (bvtVal>0?'color:#dc2626;font-weight:700;':'') + '">' + bvtVal + '</td>' +
