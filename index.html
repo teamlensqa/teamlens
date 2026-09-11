@@ -210,7 +210,7 @@
   .main {
     flex: 1; min-width: 0;
     padding: 32px 40px 80px;
-    max-width: 1400px;
+    max-width: min(1700px, 96vw);
     background: var(--bg);
   }
 
@@ -1329,6 +1329,7 @@
           <button class="export-btn" onclick="openDailyPlanReportModal()"><span class="ico">📄</span> Share report</button>
         </div>
       </div>
+      <div id="dpClipboardBanner" style="display:none;align-items:center;gap:10px;padding:8px 12px;background:#f3e8ff;border:1px solid #d8b4fe;border-radius:10px;margin-bottom:10px;"></div>
       <div id="dpKeyDatesStrip" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;background:var(--panel-2);border-radius:10px;margin-bottom:10px;"></div>
       <div class="cal-scroll-wrap" id="dailyPlanScrollWrap" style="overflow-x:auto; overflow-y:auto; max-height:calc(100vh - 280px); border-radius:12px; border:1px solid var(--border-soft); position:relative; max-width:100%;">
         <div class="cal-grid" id="dailyPlanGrid" style="overflow:visible; min-width:max-content;"></div>
@@ -1362,52 +1363,6 @@
       </div>
       <div id="mergedBuildDatesBody"></div>
     </div>
-
-    <!-- AI Assistant Panel -->
-    <div class="panel" id="aiChatPanel" style="text-align:center; padding:48px 32px; background:linear-gradient(135deg, var(--panel) 0%, var(--panel-2) 100%); border:1.5px dashed var(--border); position:relative; overflow:hidden;">
-      <!-- Background orbs -->
-      <div style="position:absolute;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(124,58,237,0.08),transparent);top:-60px;right:-60px;pointer-events:none;"></div>
-      <div style="position:absolute;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(37,99,235,0.07),transparent);bottom:-40px;left:-40px;pointer-events:none;"></div>
-
-      <!-- Icon -->
-      <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#7c3aed,#2563eb);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 18px;box-shadow:0 8px 24px rgba(124,58,237,0.3);">✨</div>
-
-      <!-- Badge -->
-      <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.25);border-radius:20px;padding:4px 14px;margin-bottom:16px;">
-        <span style="width:7px;height:7px;border-radius:50%;background:#7c3aed;display:inline-block;animation:pulse-dot 1.5s infinite;"></span>
-        <span style="font-size:11.5px;font-weight:700;color:#7c3aed;letter-spacing:0.05em;text-transform:uppercase;">Coming Soon</span>
-      </div>
-
-      <h3 style="font-family:'Inter Tight',sans-serif;font-size:20px;font-weight:800;color:var(--text);margin-bottom:10px;letter-spacing:-0.02em;">AI Planning Assistant</h3>
-      <p style="font-size:13px;color:var(--text-faint);max-width:420px;margin:0 auto 24px;line-height:1.7;">Ask anything about your team in plain English — who's free, which releases are at risk, suggest assignments, and more. Powered by Claude AI.</p>
-
-      <!-- Feature pills -->
-      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:28px;">
-        <div style="display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--text-dim);">👥 Who is free today?</div>
-        <div style="display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--text-dim);">⚠️ Which releases are at risk?</div>
-        <div style="display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--text-dim);">📅 When is next BVT?</div>
-        <div style="display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--text-dim);">🖥️ Which VMs are expiring?</div>
-        <div style="display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--border-soft);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--text-dim);">🎯 Suggest an assignee</div>
-      </div>
-
-      <!-- Progress bar decoration -->
-      <div style="max-width:280px;margin:0 auto;">
-        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-faint);margin-bottom:6px;">
-          <span>Development progress</span><span style="color:#7c3aed;font-weight:600;">80%</span>
-        </div>
-        <div style="height:5px;background:var(--border-soft);border-radius:99px;overflow:hidden;">
-          <div style="height:100%;width:80%;background:linear-gradient(90deg,#7c3aed,#2563eb);border-radius:99px;"></div>
-        </div>
-        <div style="font-size:10.5px;color:var(--text-faint);margin-top:8px;">🔑 Awaiting API key setup to go live</div>
-      </div>
-    </div>
-
-    <style>
-      @keyframes pulse-dot {
-        0%, 100% { opacity:1; transform:scale(1); }
-        50% { opacity:0.5; transform:scale(0.8); }
-      }
-    </style>
   </div>
 
   <!-- ENGG BUILD REPORT TAB -->
@@ -8770,7 +8725,7 @@ let selectedTestPlanDevPod = null;
 let selectedSummaryDevPod = null;
 let selectedReleaseStatus = null;
 let selectedSummaryStatus = null;
-let selectedDailyPlanPod = null;
+let selectedDailyPlanPods = [];
 let archiveFilter = 'active'; // 'active' | 'all' | 'archived'
 
 // Helper — active projects only (non-completed)
@@ -10474,7 +10429,8 @@ function buildDailyPlanMonthGridHtml(year, month, podFilter) {
   const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
   let people = state.people.filter(p => p.showInDailyPlan !== false);
-  if (podFilter) people = people.filter(p => p.devPod === podFilter);
+  if (Array.isArray(podFilter) && podFilter.length > 0) people = people.filter(p => podFilter.includes(p.devPod));
+  else if (podFilter && !Array.isArray(podFilter)) people = people.filter(p => p.devPod === podFilter);
   if (people.length === 0) return '';
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -10551,7 +10507,7 @@ function exportDailyPlanReport() {
   for (let idx = startIndex; idx <= endIndex; idx++) {
     const y = Math.floor(idx / 12);
     const m = idx % 12;
-    gridsHtml += buildDailyPlanMonthGridHtml(y, m, selectedDailyPlanPod || null);
+    gridsHtml += buildDailyPlanMonthGridHtml(y, m, selectedDailyPlanPods);
   }
 
   if (!gridsHtml) {
@@ -10564,8 +10520,8 @@ function exportDailyPlanReport() {
   const rangeLabel = startIndex === endIndex
     ? `${monthNames[fromMonth]} ${fromYear}`
     : `${monthNames[fromMonth]} ${fromYear} – ${monthNames[toMonth]} ${toYear}`;
-  const podLabel = selectedDailyPlanPod ? ` · ${selectedDailyPlanPod}` : '';
-  const podDesc = selectedDailyPlanPod ? ` · Filtered by Dev POD: ${selectedDailyPlanPod}` : ' · All Dev PODs';
+  const podLabel = selectedDailyPlanPods.length > 0 ? ` · ${selectedDailyPlanPods.join(', ')}` : '';
+  const podDesc = selectedDailyPlanPods.length > 0 ? ` · Filtered by Dev POD: ${selectedDailyPlanPods.join(', ')}` : ' · All Dev PODs';
 
   const bodyHtml = `
     <div class="section-card">
@@ -12749,7 +12705,13 @@ function updateArchivePills() {
 }
 
 function setDailyPlanPodFilter(pod) {
-  selectedDailyPlanPod = pod;
+  if (pod === null) {
+    selectedDailyPlanPods = [];
+  } else if (selectedDailyPlanPods.includes(pod)) {
+    selectedDailyPlanPods = selectedDailyPlanPods.filter(p => p !== pod);
+  } else {
+    selectedDailyPlanPods.push(pod);
+  }
   renderDailyPlan();
 }
 
@@ -13352,6 +13314,7 @@ function renderResourceAvailability() {
 
 // ── Daily Plan Drag-Drop ─────────────────────────────────
 let _dpDragEntryId  = null;
+let _dpClipboard = null; // { project, task } — set via dpCopyEntry, consumed via dpPasteEntry
 let _dpDragPersonId = null;
 let _dpDragDate     = null;
 
@@ -13404,6 +13367,38 @@ function dpDragOver(event) {
 
 function dpDragLeave(event) {
   event.currentTarget.classList.remove('dp-drag-over');
+}
+
+function dpCopyEntry(entryId) {
+  const e = state.dailyPlan.find(x => x.id === entryId);
+  if (!e) return;
+  _dpClipboard = { project: e.project, task: e.task || '' };
+  showToastMsg('📋 Copied "' + e.project + '"' + (e.task ? ' (' + e.task + ')' : ''));
+  renderDailyPlan(); // refresh so every empty/filled cell now shows a paste option
+}
+
+function renderDpClipboardBanner() {
+  const el = document.getElementById('dpClipboardBanner');
+  if (!el) return;
+  if (!_dpClipboard) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'flex';
+  el.innerHTML = `<span style="font-size:12.5px;color:#7e22ce;">📋 Copied: <strong>${escapeHtml(_dpClipboard.project)}</strong>${_dpClipboard.task ? ' (' + escapeHtml(_dpClipboard.task) + ')' : ''} — click 📌 Paste on any cell to add it there</span>
+    <button onclick="dpClearClipboard()" style="margin-left:auto;font-size:11px;padding:3px 10px;background:white;border:1px solid #d8b4fe;border-radius:20px;cursor:pointer;color:#7e22ce;font-family:inherit;">Clear</button>`;
+}
+
+async function dpPasteEntry(personId, dateKey) {
+  if (!_dpClipboard) return;
+  if (!canEdit('dailyplan')) return;
+  const newEntry = { id: uid(), personId, project: _dpClipboard.project, task: _dpClipboard.task || '', date: dateKey };
+  state.dailyPlan.push(newEntry);
+  await saveDailyPlanEntry(newEntry);
+  renderDailyPlan();
+  showToastMsg('📌 Pasted "' + _dpClipboard.project + '"');
+}
+
+function dpClearClipboard() {
+  _dpClipboard = null;
+  renderDailyPlan();
 }
 
 async function dpDrop(event, targetPersonId, targetDate) {
@@ -13485,26 +13480,26 @@ function renderDailyPlan() {
       podPillsEl.innerHTML = '<span style="font-size:11px; color:var(--text-faint); font-style:italic;">Set POD in People tab</span>';
     } else {
       podPillsEl.innerHTML =
-        `<button onclick="setDailyPlanPodFilter(null)" style="padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer; border:1.5px solid; transition:all 0.12s; ${selectedDailyPlanPod === null ? 'background:#0f172a; color:white; border-color:#0f172a;' : 'background:#f1f5f9; color:#64748b; border-color:#e2e8f0;'}">All</button>` +
+        `<button onclick="setDailyPlanPodFilter(null)" style="padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer; border:1.5px solid; transition:all 0.12s; ${selectedDailyPlanPods.length === 0 ? 'background:#0f172a; color:white; border-color:#0f172a;' : 'background:#f1f5f9; color:#64748b; border-color:#e2e8f0;'}">All</button>` +
         ALL_PODS.filter(pod => usedPods.includes(pod)).map(pod => {
           const [bg, fg] = POD_COLORS[pod] || ['#f1f5f9','#475569'];
-          const isActive = selectedDailyPlanPod === pod;
-          return `<button onclick="setDailyPlanPodFilter('${pod}')" style="padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer; border:1.5px solid; white-space:nowrap; transition:all 0.12s; ${isActive ? `background:${fg}; color:white; border-color:${fg};` : `background:${bg}; color:${fg}; border-color:${bg};`}">${pod}</button>`;
+          const isActive = selectedDailyPlanPods.includes(pod);
+          return `<button onclick="setDailyPlanPodFilter('${pod}')" style="padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer; border:1.5px solid; white-space:nowrap; transition:all 0.12s; ${isActive ? `background:${fg}; color:white; border-color:${fg};` : `background:${bg}; color:${fg}; border-color:${bg};`}">${isActive ? '✓ ' : ''}${pod}</button>`;
         }).join('');
     }
   }
 
   // Filter people — only show those with showInDailyPlan !== false, then apply POD filter
   const dailyPlanPeople = state.people.filter(p => p.showInDailyPlan !== false);
-  const filteredPeople = selectedDailyPlanPod
-    ? dailyPlanPeople.filter(p => p.devPod === selectedDailyPlanPod)
+  const filteredPeople = selectedDailyPlanPods.length > 0
+    ? dailyPlanPeople.filter(p => selectedDailyPlanPods.includes(p.devPod))
     : dailyPlanPeople;
 
   if (countEl) {
     const n = filteredPeople.length;
     const total = state.people.length;
-    countEl.textContent = selectedDailyPlanPod
-      ? `${n} of ${total} people (${selectedDailyPlanPod})${n > 5 ? ' · ← scroll right →' : ''}`
+    countEl.textContent = selectedDailyPlanPods.length > 0
+      ? `${n} of ${total} people (${selectedDailyPlanPods.join(', ')})${n > 5 ? ' · ← scroll right →' : ''}`
       : `${total} people${total > 5 ? ' · ← scroll right to see all →' : ''}`;
   }
 
@@ -13517,7 +13512,7 @@ function renderDailyPlan() {
     return;
   }
   if (filteredPeople.length === 0) {
-    grid.innerHTML = `<div style="padding:32px; text-align:center; color:var(--text-faint); font-style:italic;">No people in ${selectedDailyPlanPod} POD. Add people with this POD in the People tab.</div>`;
+    grid.innerHTML = `<div style="padding:32px; text-align:center; color:var(--text-faint); font-style:italic;">No people in ${escapeHtml(selectedDailyPlanPods.join(', '))} POD(s). Add people with this POD in the People tab.</div>`;
     empty.style.display = 'none';
     return;
   }
@@ -13582,7 +13577,7 @@ function renderDailyPlan() {
         <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#7c3aed,#a855f7);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;flex-shrink:0;">${initials}</div>
         <div style="min-width:0;">
           <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;font-weight:600;">${escapeHtml(p.name)}</div>
-          ${p.devPod && !selectedDailyPlanPod ? `<div style="font-size:10px;color:${podC?.[1]||'#64748b'};font-weight:500;">${escapeHtml(p.devPod)}</div>` : ''}
+          ${p.devPod && selectedDailyPlanPods.length === 0 ? `<div style="font-size:10px;color:${podC?.[1]||'#64748b'};font-weight:500;">${escapeHtml(p.devPod)}</div>` : ''}
         </div>
       </div>
     </div>`;
@@ -13652,7 +13647,8 @@ function renderDailyPlan() {
             : '';
           const canEditDP = canEdit('dailyplan');
           const actionBtns = canEditDP
-            ? `<button title="Edit" onclick="event.stopPropagation();editDailyPlanEntry('${e.id}')" style="background:${color}25;border:none;border-radius:3px;cursor:pointer;padding:2px 5px;font-size:10px;color:${color};line-height:1;font-family:inherit;">✎</button>
+            ? `<button title="Copy" onclick="event.stopPropagation();dpCopyEntry('${e.id}')" style="background:${color}18;border:none;border-radius:3px;cursor:pointer;padding:2px 5px;font-size:10px;color:${color};line-height:1;font-family:inherit;">📋</button>
+               <button title="Edit" onclick="event.stopPropagation();editDailyPlanEntry('${e.id}')" style="background:${color}25;border:none;border-radius:3px;cursor:pointer;padding:2px 5px;font-size:10px;color:${color};line-height:1;font-family:inherit;">✎</button>
                <button title="Remove" onclick="event.stopPropagation();clearDailyPlanCell('${p.id}','${dateKey}','${e.id}')" style="background:#fee2e2;border:none;border-radius:3px;cursor:pointer;padding:2px 5px;font-size:10px;color:#dc2626;line-height:1;font-family:inherit;">✕</button>`
             : '';
           const dragHandle = canEditDP ? `<span title="Drag to move" style="cursor:grab;font-size:9px;color:${color};opacity:0.5;margin-right:2px;line-height:1;">⠿</span>` : '';
@@ -13667,18 +13663,25 @@ function renderDailyPlan() {
             <div class="dp-actions" style="display:none;position:absolute;top:2px;right:2px;gap:2px;align-items:center;">${actionBtns}</div>
           </div>`;
         }).join('');
+        const pasteBtn = (_dpClipboard && canEdit('dailyplan'))
+          ? `<button title="Paste '${escapeHtml(_dpClipboard.project)}' here" onclick="event.stopPropagation();dpPasteEntry('${p.id}','${dateKey}')" style="display:block;width:100%;text-align:center;background:#f3e8ff;color:#7e22ce;border:none;border-top:1px dashed #d8b4fe;border-radius:0 0 4px 4px;cursor:pointer;font-size:9.5px;padding:1px 0;margin-top:1px;">📌 Paste</button>`
+          : '';
         html += `<div class="cal-cell day-cell dp-drop-zone"
           data-person-id="${p.id}" data-date="${dateKey}"
           ondragover="dpDragOver(event)" ondragleave="dpDragLeave(event)" ondrop="dpDrop(event,'${p.id}','${dateKey}')"
-          style="text-align:left;padding:2px 3px;">${segs}</div>`;
+          style="text-align:left;padding:2px 3px;">${segs}${pasteBtn}</div>`;
       } else {
+        const canEditDP2 = canEdit('dailyplan');
+        const showPaste = _dpClipboard && canEditDP2;
         html += `<div class="cal-cell day-cell dp-drop-zone"
           data-person-id="${p.id}" data-date="${dateKey}"
           ondragover="dpDragOver(event)" ondragleave="dpDragLeave(event)" ondrop="dpDrop(event,'${p.id}','${dateKey}')"
-          title="${canEdit('dailyplan')?'Click to assign':''}"
-          style="cursor:${canEdit('dailyplan')?'pointer':'default'};"
-          onclick="if(canEdit('dailyplan'))openDailyPlanModal('${p.id}','${dateKey}');">
-          <div style="opacity:0.2;font-size:11px;text-align:center;">${canEdit('dailyplan')?'+':''}</div>
+          title="${showPaste ? ('Paste ' + escapeHtml(_dpClipboard.project) + ' here') : (canEditDP2?'Click to assign':'')}"
+          style="cursor:${canEditDP2?'pointer':'default'};"
+          onclick="${showPaste ? `dpPasteEntry('${p.id}','${dateKey}')` : (canEditDP2 ? `openDailyPlanModal('${p.id}','${dateKey}')` : '')}">
+          ${showPaste
+            ? `<div style="font-size:10px;text-align:center;color:#7e22ce;font-weight:600;">📌 Paste</div>`
+            : `<div style="opacity:0.2;font-size:11px;text-align:center;">${canEditDP2?'+':''}</div>`}
         </div>`;
       }
     });
@@ -13686,6 +13689,7 @@ function renderDailyPlan() {
   grid.innerHTML = html;
   renderReleaseExecTracker();
   renderMergedBuildDates();
+  renderDpClipboardBanner();
 }
 
 
@@ -13712,16 +13716,20 @@ function renderDpKeyDatesStrip(monthMilestones, monthNames) {
       const bg = m.type === 'goAhead' ? '#dbeafe' : '#dcfce7';
       const fg = m.type === 'goAhead' ? '#1d4ed8' : '#15803d';
       const icon = m.type === 'goAhead' ? '🚀' : '🏁';
-      return `<span style="font-size:12px;background:${bg};color:${fg};padding:3px 11px;border-radius:20px;font-weight:600;white-space:nowrap;">${icon} ${label} — ${escapeHtml(m.name)}</span>`;
+      return `<span style="font-size:12px;background:${bg};color:${fg};padding:3px 11px;border-radius:20px;font-weight:600;white-space:nowrap;display:inline-block;">${icon} ${label} — ${escapeHtml(m.name)}</span>`;
     }
-    return `<button id="${rowId}-pill" onclick="toggleDpMilestoneGroup('${rowId}')" style="font-size:12px;background:#f3e8ff;color:#7e22ce;padding:3px 11px;border-radius:20px;font-weight:600;border:none;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;">📌 ${label} — ${items.length} milestones <span id="${rowId}-chev" style="font-size:9px;">▾</span></button>
-      <div id="${rowId}-list" style="display:none;width:100%;flex-direction:column;gap:3px;padding:6px 10px;background:var(--panel);border-radius:8px;margin-top:2px;">
-        ${items.map(m => `<span style="font-size:11.5px;">${m.type === 'goAhead' ? '🚀' : '🏁'} ${escapeHtml(m.name)} — ${m.type === 'goAhead' ? 'Go ahead' : 'QA completion'}</span>`).join('')}
-      </div>`;
+    return `<span style="position:relative;display:inline-block;">
+      <button id="${rowId}-pill" onclick="toggleDpMilestoneGroup('${rowId}')" style="font-size:12px;background:#f3e8ff;color:#7e22ce;padding:3px 11px;border-radius:20px;font-weight:600;border:none;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;">📌 ${label} — ${items.length} milestones <span id="${rowId}-chev" style="font-size:9px;">▾</span></button>
+      <div id="${rowId}-list" style="display:none;flex-direction:column;gap:3px;padding:8px 12px;background:var(--panel);border:1px solid var(--border-soft);border-radius:8px;position:absolute;top:calc(100% + 4px);left:0;z-index:20;min-width:220px;box-shadow:0 4px 16px rgba(0,0,0,0.12);">
+        ${items.map(m => `<span style="font-size:11.5px;white-space:nowrap;">${m.type === 'goAhead' ? '🚀' : '🏁'} ${escapeHtml(m.name)} — ${m.type === 'goAhead' ? 'Go ahead' : 'QA completion'}</span>`).join('')}
+      </div>
+    </span>`;
   }).join('');
 
   el.style.display = 'flex';
-  el.innerHTML = `<span style="font-size:11px;color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">📌 Key dates</span>${pills}`;
+  el.style.flexWrap = 'wrap';
+  el.style.rowGap = '10px';
+  el.innerHTML = `<span style="font-size:11px;color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">📌 Key dates</span>${pills}`;
 }
 
 function toggleDpMilestoneGroup(rowId) {
@@ -14313,15 +14321,15 @@ function openEngBuildReportInTab() {
         '<td class="r">' + (e.plannedBuilds||0) + '</td>' +
         '<td class="r">' + (e.unplannedBuilds||0) + '</td>' +
         '<td class="r">' + (e.bvtFailed||0) + '</td>' +
+        '<td>' + (tags || '—') + '</td>' +
         '<td>' + escapeHtml(e.issueBy||'—') + '</td>' +
         '<td style="max-width:220px;overflow-wrap:anywhere;word-break:break-word;">' + escapeHtml(e.reason||'—') + '</td>' +
-        '<td>' + (tags || '—') + '</td>' +
         '<td style="max-width:220px;overflow-wrap:anywhere;word-break:break-word;">' + escapeHtml(e.comments||'—') + '</td>' +
       '</tr>';
     }).join('');
     return '<div class="project-card"><div class="project-card-body"><div class="section-label">' + escapeHtml(comp) + '</div>' +
       '<div class="matrix-wrap"><table class="matrix-table"><thead><tr>' +
-        '<th>GA date</th><th>Version</th><th>Owner</th><th class="r">Planned</th><th class="r">Unplanned</th><th class="r">BVT failed</th><th>Identified by</th><th>Reason</th><th>Tagged items</th><th>Comments</th>' +
+        '<th>GA date</th><th>Version</th><th>Owner</th><th class="r">Planned</th><th class="r">Unplanned</th><th class="r">BVT failed</th><th>Tagged items</th><th>Identified by</th><th>Reason</th><th>Comments</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div></div></div>';
   }).join('');
 
