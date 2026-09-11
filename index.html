@@ -1359,7 +1359,11 @@
           <h3>🧩 Merged build — important dates <span id="mergedBuildMonthLabel" style="font-size:11px; font-weight:600; color:#7c3aed; background:#f3e8ff; padding:2px 10px; border-radius:20px; margin-left:6px; vertical-align:middle;"></span></h3>
           <div class="desc">Component-wise key dates for the merged build — showing rows relevant to this month</div>
         </div>
-        <button class="action" onclick="addMergedBuildDateRow()">+ Add component date entry</button>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span id="mergedBuildSaveStatus" style="font-size:11.5px; color:var(--text-faint); display:none;">● Unsaved changes</span>
+          <button id="mergedBuildSaveBtn" onclick="saveMergedBuildDatesChanges()" disabled style="background:var(--panel-2); color:var(--text-faint); border:1px solid var(--border); border-radius:8px; padding:7px 14px; font-size:12.5px; font-weight:700; cursor:not-allowed; font-family:inherit;">💾 Save</button>
+          <button class="action" onclick="addMergedBuildDateRow()">+ Add component date entry</button>
+        </div>
       </div>
       <div id="mergedBuildDatesBody"></div>
     </div>
@@ -1609,7 +1613,7 @@
 
     <div id="testPlanBody" style="display:none;">
       <div class="panel">
-        <button type="button" onclick="toggleDimensionChecklistSummary()" style="display:flex; align-items:center; justify-content:space-between; width:100%; background:none; border:none; cursor:pointer; padding:4px; font-family:inherit;">
+        <button type="button" onclick="toggleDimensionChecklistSummary()" style="display:flex; align-items:center; justify-content:space-between; width:100%; background:none; border:none; cursor:pointer; padding:4px; font-family:inherit; color:var(--text);">
           <div style="display:flex; align-items:center; gap:8px;">
             <span id="dcChevron" style="font-size:11px; color:var(--text-faint);">▸</span>
             <span style="font-size:14px; font-weight:600;">Dimension checklist</span>
@@ -4879,7 +4883,7 @@ async function saveState() {
   const hasAnyEdit = Object.values(currentUserPermissions).some(v => v === 'edit');
   if (currentUserRole !== 'admin' && !hasAnyEdit) {
     console.warn('Read-only user attempted save — blocked.');
-    return;
+    return false;
   }
   const el = document.getElementById('lastSaved');
   try {
@@ -4907,7 +4911,7 @@ async function saveState() {
     if (error) {
       console.error('Save error:', error);
       el.textContent = 'save failed: ' + error.message;
-      return;
+      return false;
     }
 
     _lastSavedAt = Date.now();
@@ -4942,9 +4946,11 @@ async function saveState() {
     el.textContent = 'saved ' + new Date().toLocaleTimeString();
     const toast = document.getElementById('saveToast');
     if (toast) { toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 1200); }
+    return true;
   } catch (e) {
     console.error('Save failed', e);
     el.textContent = 'save failed: ' + (e.message || e);
+    return false;
   }
 }
 
@@ -13798,7 +13804,7 @@ function renderReleaseExecTracker() {
           ? `<textarea rows="2" placeholder="Add reason" onchange="saveDelayReason('${p.id}',this.value)"
                onfocus="this.style.background='var(--panel)';this.style.border='1px solid var(--border-strong)';"
                onblur="this.style.background='transparent';this.style.border='1px solid transparent';"
-               style="width:100%;font-size:12px;padding:6px 8px;font-family:inherit;resize:vertical;min-height:36px;white-space:pre-wrap;border:1px solid transparent;border-radius:6px;background:transparent;">${escapeHtml(p.delayReason || '')}</textarea>`
+               style="width:100%;font-size:12px;padding:6px 8px;font-family:inherit;resize:vertical;min-height:36px;white-space:pre-wrap;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--text);">${escapeHtml(p.delayReason || '')}</textarea>`
           : `<span style="font-size:12px;color:var(--text-dim);white-space:pre-wrap;">${escapeHtml(p.delayReason || '—')}</span>`)
       : '<span style="color:var(--text-faint);">—</span>';
     return `<tr>
@@ -13909,25 +13915,59 @@ function renderMergedBuildDates() {
   </div>`;
 }
 
+let _mergedBuildDatesDirty = false;
+
+function markMergedBuildDirty() {
+  _mergedBuildDatesDirty = true;
+  const btn = document.getElementById('mergedBuildSaveBtn');
+  const status = document.getElementById('mergedBuildSaveStatus');
+  if (btn) {
+    btn.disabled = false;
+    btn.style.cursor = 'pointer';
+    btn.style.background = 'linear-gradient(135deg,#7c3aed,#2563eb)';
+    btn.style.color = 'white';
+  }
+  if (status) status.style.display = 'inline';
+}
+
+async function saveMergedBuildDatesChanges() {
+  const btn = document.getElementById('mergedBuildSaveBtn');
+  const status = document.getElementById('mergedBuildSaveStatus');
+  const ok = await saveState();
+  if (ok) {
+    _mergedBuildDatesDirty = false;
+    if (btn) {
+      btn.disabled = true;
+      btn.style.cursor = 'not-allowed';
+      btn.style.background = 'var(--panel-2)';
+      btn.style.color = 'var(--text-faint)';
+    }
+    if (status) status.style.display = 'none';
+    showToastMsg('✅ Saved');
+  } else {
+    showToastMsg('❌ Could not save — check your edit access and try again');
+  }
+}
+
 function addMergedBuildDateRow() {
   if (!canEdit('dailyplan')) return;
   if (!state.mergedBuildDates) state.mergedBuildDates = [];
   state.mergedBuildDates.push({ id: uid(), component: '', goAheadDate: '', devToQaDate: '', bvtDate: '', regressionDate: '', releaseDate: '' });
-  saveState();
   renderMergedBuildDates();
+  markMergedBuildDirty();
 }
 
 function updateMergedBuildDateField(rowId, field, value) {
   const row = state.mergedBuildDates.find(r => r.id === rowId);
   if (!row) return;
   row[field] = value;
-  saveState();
+  markMergedBuildDirty();
 }
 
 function deleteMergedBuildDateRow(rowId) {
   state.mergedBuildDates = state.mergedBuildDates.filter(r => r.id !== rowId);
-  saveState();
   renderMergedBuildDates();
+  markMergedBuildDirty();
 }
 
 // ====================== ENGG BUILD REPORT ======================
