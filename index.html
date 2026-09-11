@@ -973,30 +973,30 @@
         <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
         Release
       </button>
-      <button class="tab-btn" data-tab="testplan" data-title="Test plan" data-desc="Project-wise environment matrix, buffer effort, and total PD calculation">
+      <button class="tab-btn" data-tab="testplan" data-title="Test Plan" data-desc="Project-wise environment matrix, buffer effort, and total PD calculation">
         <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
-        Test plan
+        Test Plan
       </button>
 
       <div class="nav-section-label" id="navLabelAvailability">Availability</div>
-      <button class="tab-btn" data-tab="leave" data-title="Leave calendar" data-desc="Click a day to toggle leave for that person">
+      <button class="tab-btn" data-tab="leave" data-title="Leave Calendar" data-desc="Click a day to toggle leave for that person">
         <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
-        Leave calendar
+        Leave Calendar
       </button>
-      <button class="tab-btn" data-tab="holidays" data-title="Public holidays" data-desc="Dates excluded from working day and available PD calculations">
+      <button class="tab-btn" data-tab="holidays" data-title="Public Holidays" data-desc="Dates excluded from working day and available PD calculations">
         <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
         Holidays
       </button>
 
       <div class="nav-section-label" id="navLabelPlanning">Planning &amp; Tracking</div>
-      <button class="tab-btn" data-tab="dailyplan" data-title="Daily resource plan" data-desc="One project per person per day, across a date range">
+      <button class="tab-btn" data-tab="dailyplan" data-title="Daily Resource Plan" data-desc="One project per person per day, across a date range">
         <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></span>
-        Daily plan
+        Daily Plan
       </button>
 
-      <button class="tab-btn" data-tab="buildreport" data-title="Engg build report" data-desc="Component-wise build history — planned, unplanned, BVT failures and tagged release items">
+      <button class="tab-btn" data-tab="buildreport" data-title="Engg Build Report" data-desc="Component-wise build history — planned, unplanned, BVT failures and tagged release items">
         <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5a2 2 0 0 1 2-2h8l6 6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v6h6"/><path d="M9 13h6M9 17h6"/></svg></span>
-        Engg build report
+        Engg Build Report
       </button>
 
 
@@ -1302,7 +1302,7 @@
     <div class="panel">
       <div class="panel-head">
         <div>
-          <h3>Daily resource plan</h3>
+          <h3>Daily Resource Plan</h3>
           <div class="desc" id="dayMonthLabel">One project per person per day, across a date range</div>
           <div id="dailyPlanPeopleCount" style="font-size:11px; color:var(--text-faint); margin-top:3px;"></div>
         </div>
@@ -1377,7 +1377,7 @@
         <div style="display:flex; align-items:center; gap:12px;">
           <div style="width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg,#0f766e,#0891b2); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">🧩</div>
           <div>
-            <h3 style="margin:0;">Engg build report</h3>
+            <h3 style="margin:0;">Engg Build Report</h3>
             <div class="desc">Component-wise build history — planned, unplanned, BVT failures and tagged release items</div>
           </div>
         </div>
@@ -1565,7 +1565,7 @@
     <div class="panel">
       <div class="panel-head">
         <div>
-          <h3>Public holidays</h3>
+          <h3>Public Holidays</h3>
           <div class="desc">These dates are excluded from working day and available PD calculations, along with Saturdays and Sundays</div>
         </div>
         <button class="action" onclick="openHolidayModal()">+ Add holiday</button>
@@ -1583,7 +1583,7 @@
     <div class="panel">
       <div class="panel-head">
         <div>
-          <h3>Test plan</h3>
+          <h3>Test Plan</h3>
           <div class="desc">Filter by Release/GA date, then pick a release item to view or edit its test matrix</div>
         </div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
@@ -2952,6 +2952,41 @@ async function deleteMergedBuildDateRowDB(rowId) {
 }
 
 // Load all engineering build rows from dedicated table
+// Load all review requests from dedicated table
+async function loadReviewRequests() {
+  if (!sbClient) return;
+  try {
+    const { data, error } = await sbClient
+      .from('review_requests')
+      .select('data')
+      .order('updated_at', { ascending: true });
+    if (error) throw error;
+    state.reviewRequests = (data || []).map(r => r.data);
+  } catch(e) { console.warn('loadReviewRequests error:', e); }
+}
+
+async function saveReviewRequestRow(req) {
+  if (!sbClient || !req || !req.id) return false;
+  try {
+    const { error } = await sbClient.from('review_requests').upsert({
+      id: req.id,
+      data: req,
+      updated_at: new Date().toISOString()
+    });
+    if (error) { console.error('saveReviewRequestRow error:', error.message); return false; }
+    return true;
+  } catch(e) { console.warn('saveReviewRequestRow error:', e); return false; }
+}
+
+async function deleteReviewRequestRowDB(id) {
+  if (!sbClient || !id) return false;
+  try {
+    const { error } = await sbClient.from('review_requests').delete().eq('id', id);
+    if (error) { console.error('deleteReviewRequestRowDB error:', error.message); return false; }
+    return true;
+  } catch(e) { console.warn('deleteReviewRequestRowDB error:', e); return false; }
+}
+
 async function loadEngineeringBuilds() {
   if (!sbClient) return;
   try {
@@ -2989,13 +3024,16 @@ async function deleteEngBuildEntryDB(id) {
 // Migrate any existing merged build dates / engineering builds sitting in the
 // old shared blob into the new dedicated tables — one-time, runs only if the
 // new tables are still empty for this data.
-async function migrateBuildDataToSeparateTables(oldMergedBuildDates, oldEngineeringBuilds) {
+async function migrateBuildDataToSeparateTables(oldMergedBuildDates, oldEngineeringBuilds, oldReviewRequests) {
+  let migratedSomething = false;
   try {
     if (Array.isArray(oldMergedBuildDates) && oldMergedBuildDates.length > 0) {
       const { count } = await sbClient.from('merged_build_dates').select('id', { count: 'exact', head: true });
       if (!count || count === 0) {
         for (const row of oldMergedBuildDates) { if (row && row.id) await saveMergedBuildDateRow(row); }
         console.log('[Migration] Merged build dates migrated:', oldMergedBuildDates.length);
+        state.mergedBuildDates = oldMergedBuildDates;
+        migratedSomething = true;
       }
     }
     if (Array.isArray(oldEngineeringBuilds) && oldEngineeringBuilds.length > 0) {
@@ -3003,7 +3041,23 @@ async function migrateBuildDataToSeparateTables(oldMergedBuildDates, oldEngineer
       if (!count || count === 0) {
         for (const entry of oldEngineeringBuilds) { if (entry && entry.id) await saveEngBuildRow(entry); }
         console.log('[Migration] Engineering builds migrated:', oldEngineeringBuilds.length);
+        state.engineeringBuilds = oldEngineeringBuilds;
+        migratedSomething = true;
       }
+    }
+    if (Array.isArray(oldReviewRequests) && oldReviewRequests.length > 0) {
+      const { count } = await sbClient.from('review_requests').select('id', { count: 'exact', head: true });
+      if (!count || count === 0) {
+        for (const req of oldReviewRequests) { if (req && req.id) await saveReviewRequestRow(req); }
+        console.log('[Migration] Review requests migrated:', oldReviewRequests.length);
+        state.reviewRequests = oldReviewRequests;
+        migratedSomething = true;
+      }
+    }
+    if (migratedSomething) {
+      markDirty('dailyplan', 'buildreport', 'dashboard');
+      renderAll();
+      showToastMsg('✅ Restored your previous build report data');
     }
   } catch (e) { console.warn('[Migration] Build data migration error:', e); }
 }
@@ -3176,6 +3230,26 @@ function initSeparateTableRealtime() {
         state.engineeringBuilds = state.engineeringBuilds.filter(e => e.id !== payload.old?.id);
       }
       markDirty('buildreport');
+      renderAll();
+    })
+    .subscribe();
+
+  // Review requests realtime
+  sbClient.channel('review-requests-changes')
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'review_requests'
+    }, async (payload) => {
+      if (!state.reviewRequests) state.reviewRequests = [];
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const req = payload.new?.data;
+        if (!req) return;
+        const idx = state.reviewRequests.findIndex(r => r.id === req.id);
+        if (idx >= 0) state.reviewRequests[idx] = req;
+        else state.reviewRequests.push(req);
+      } else if (payload.eventType === 'DELETE') {
+        state.reviewRequests = state.reviewRequests.filter(r => r.id !== payload.old?.id);
+      }
+      markDirty('dashboard');
       renderAll();
     })
     .subscribe();
@@ -5000,7 +5074,8 @@ async function loadState() {
       state.allocations        = Array.isArray(parsed.allocations)        ? parsed.allocations        : [];
       state.vmPods             = Array.isArray(parsed.vmPods)             ? parsed.vmPods             :
         ['Akash','Dikshit','Regression VMs','Automation VMs','Insider Testing','KLA Machines','Hot Folder','BJ','AppConnect Server'];
-      state.reviewRequests          = Array.isArray(parsed.reviewRequests)          ? parsed.reviewRequests          : [];
+      const _oldReviewRequests    = Array.isArray(parsed.reviewRequests)          ? parsed.reviewRequests          : [];
+      state.reviewRequests          = _oldReviewRequests;
       state.buildDelayNotifications = Array.isArray(parsed.buildDelayNotifications) ? parsed.buildDelayNotifications : [];
       state.notifications           = [];
       state.dismissedAlerts         = Array.isArray(parsed.dismissedAlerts)         ? parsed.dismissedAlerts         : [];
@@ -5020,11 +5095,12 @@ async function loadState() {
         loadReleases(),
         loadDailyPlan(),
         loadMergedBuildDates(),
-        loadEngineeringBuilds()
+        loadEngineeringBuilds(),
+        loadReviewRequests()
       ]);
       // One-time migration: if the new dedicated tables came back empty but
       // the old shared blob had data, copy it over so nothing is lost.
-      migrateBuildDataToSeparateTables(_oldMergedBuildDates, _oldEngineeringBuilds);
+      migrateBuildDataToSeparateTables(_oldMergedBuildDates, _oldEngineeringBuilds, _oldReviewRequests);
       // Load test plans — skip currently selected project if draft exists
       if (selectedTestPlanProjectId) {
         const hasDraft = !!localStorage.getItem(DRAFT_KEY_PREFIX + selectedTestPlanProjectId);
@@ -5071,6 +5147,7 @@ async function saveState() {
       importantLinks: _i,
       mergedBuildDates: _mbd,
       engineeringBuilds: _eb,
+      reviewRequests: _rr,
       ...stateToSave
     } = state;
 
@@ -5125,6 +5202,7 @@ async function saveState() {
         dailyPlan:          state.dailyPlan          || [],
         mergedBuildDates:   state.mergedBuildDates    || [],
         engineeringBuilds:  state.engineeringBuilds   || [],
+        reviewRequests:     state.reviewRequests      || [],
       };
       sbClient.from('backups').insert({
         saved_by: currentUserEmail,
@@ -5304,10 +5382,10 @@ async function adminRemoveUser(rowId, email) {
 const SECTIONS_LIST = [
   { key: 'people',    label: 'People' },
   { key: 'projects',  label: 'Release' },
-  { key: 'testplan',  label: 'Test plan' },
-  { key: 'dailyplan', label: 'Daily plan' },
-  { key: 'buildreport', label: 'Engg build report' },
-  { key: 'leave',     label: 'Leave calendar' },
+  { key: 'testplan',  label: 'Test Plan' },
+  { key: 'dailyplan', label: 'Daily Plan' },
+  { key: 'buildreport', label: 'Engg Build Report' },
+  { key: 'leave',     label: 'Leave Calendar' },
   { key: 'holidays',  label: 'Holidays' },
   { key: 'summary',   label: 'Summary' },
   { key: 'vmrepo',    label: 'Infra Hub' },
@@ -6558,14 +6636,15 @@ function requestReview(projectId) {
     return;
   }
 
-  state.reviewRequests.push({
+  const newRequest = {
     id: uid(),
     projectId,
     projectName: proj.name,
     requestedBy: currentUserEmail,
     requestedAt: new Date().toISOString(),
     status: 'pending'
-  });
+  };
+  state.reviewRequests.push(newRequest);
 
   // Push notification to QA Lead
   if (proj.qaLead) {
@@ -6582,7 +6661,7 @@ function requestReview(projectId) {
   }
 
   saveBufferRow(projectId, getTestPlanForProject(projectId));
-  saveState();
+  saveReviewRequestRow(newRequest);
   markDirty('dashboard');
   renderTab('dashboard');
   renderReviewPanel(state.testPlans[projectId]);
@@ -6592,7 +6671,7 @@ function requestReview(projectId) {
 function dismissReviewRequest(requestId) {
   if (!state.reviewRequests) return;
   state.reviewRequests = state.reviewRequests.filter(r => r.id !== requestId);
-  saveState();
+  deleteReviewRequestRowDB(requestId);
   markDirty('dashboard');
   renderTab('dashboard');
   showToastMsg('Review request dismissed');
@@ -6947,19 +7026,23 @@ function toggleReviewApproval() {
     plan.reviewed = true;
     plan.reviewedBy = currentUserEmail || 'Unknown';
     plan.reviewedAt = new Date().toISOString();
+    const changedRequests = [];
     if (state.reviewRequests) {
-      state.reviewRequests = state.reviewRequests.map(r =>
-        r.projectId === selectedTestPlanProjectId && r.status === 'pending'
-          ? { ...r, status: 'approved', approvedAt: new Date().toISOString() }
-          : r
-      );
+      state.reviewRequests = state.reviewRequests.map(r => {
+        if (r.projectId === selectedTestPlanProjectId && r.status === 'pending') {
+          const updated = { ...r, status: 'approved', approvedAt: new Date().toISOString() };
+          changedRequests.push(updated);
+          return updated;
+        }
+        return r;
+      });
     }
     syncTestPlanToProjects();
     // Save to field tables
     saveBufferRow(selectedTestPlanProjectId, plan);
     const updatedProj = state.projects.find(p => p.id === selectedTestPlanProjectId);
     if (updatedProj) saveRelease(updatedProj);
-    saveState();
+    changedRequests.forEach(r => saveReviewRequestRow(r));
     clearRenderCache();
     renderTestPlan();
     renderProjects();
@@ -6986,7 +7069,6 @@ function clearReviewApproval() {
   saveBufferRow(selectedTestPlanProjectId, plan);
   const updProj2 = state.projects.find(p => p.id === selectedTestPlanProjectId);
   if (updProj2) saveRelease(updProj2);
-  saveState();
   clearRenderCache();
   renderTestPlan();
   renderProjects();
@@ -7264,8 +7346,7 @@ function saveVM() {
   }
   editingVMId = null;
   closeModal('vmModal');
-  saveVMRecord(vm); // field-level save
-  saveState();
+  saveVMRecord(vm);
   renderVMRepo();
 }
 
@@ -7274,8 +7355,7 @@ function deleteVM(id) {
   if (!confirm(`Remove VM: ${vm?.details || id}?`)) return;
   snapshotState(`Delete VM: ${vm?.details?.slice(0,30)}`);
   state.vms = state.vms.filter(v => v.id !== id);
-  deleteVMRecord(id); // field-level delete
-  saveState();
+  deleteVMRecord(id);
   renderVMRepo();
 }
 
@@ -7283,8 +7363,7 @@ function toggleVMInUseRow(id) {
   const vm = (state.vms || []).find(v => v.id === id);
   if (!vm) return;
   vm.inUse = !vm.inUse;
-  saveVMRecord(vm); // field-level save
-  saveState();
+  saveVMRecord(vm);
   renderVMRepo();
 }
 
@@ -7292,8 +7371,7 @@ function updateVMOwner(id, value) {
   const vm = (state.vms || []).find(v => v.id === id);
   if (!vm) return;
   vm.member = value;
-  saveVMRecord(vm); // field-level save
-  saveState();
+  saveVMRecord(vm);
   renderVMRepo();
 }
 
@@ -8113,8 +8191,7 @@ function savePerson() {
   }
   editingPersonId = null;
   closeModal('personModal');
-  savePeopleRecord(person); // field-level save
-  saveState();
+  savePeopleRecord(person);
   renderAll();
 }
 
@@ -8126,8 +8203,7 @@ function deletePerson(id) {
   state.dailyPlan = state.dailyPlan.filter(d => d.personId !== id);
   delete state.leaves[id];
   logActivity('Person deleted', { name: person?.name || id });
-  deletePeopleRecord(id); // field-level delete
-  saveState();
+  deletePeopleRecord(id);
   renderAll();
 }
 
@@ -8482,16 +8558,14 @@ function saveLink() {
   }
   _editingLinkId = null;
   closeModal('linkModal');
-  saveLinkRecord(link); // field-level save
-  saveState();
+  saveLinkRecord(link);
   renderImportantLinks();
 }
 
 function deleteLink(id) {
   if (!confirm('Remove this link?')) return;
   state.importantLinks = (state.importantLinks||[]).filter(l => l.id !== id);
-  deleteLinkRecord(id); // field-level delete
-  saveState();
+  deleteLinkRecord(id);
   renderImportantLinks();
 }
 
@@ -8630,16 +8704,14 @@ function saveResource() {
   }
   _editingResourceId = null;
   closeModal('resourceModal');
-  saveKnowledgeRecord(resource); // field-level save
-  saveState();
+  saveKnowledgeRecord(resource);
   renderKnowledge();
 }
 
 function deleteResource(id) {
   if (!confirm('Remove this resource?')) return;
   state.knowledgeResources = (state.knowledgeResources||[]).filter(r => r.id !== id);
-  deleteKnowledgeRecord(id); // field-level delete
-  saveState();
+  deleteKnowledgeRecord(id);
   renderKnowledge();
 }
 
@@ -8647,9 +8719,8 @@ function togglePinResource(id) {
   const r = (state.knowledgeResources||[]).find(x => x.id === id);
   if (r) {
     r.pinned = !r.pinned;
-    saveKnowledgeRecord(r); // field-level save
+    saveKnowledgeRecord(r);
   }
-  saveState();
   renderKnowledge();
 }
 
@@ -8906,15 +8977,13 @@ function saveHoliday() {
   state.holidays.push(holiday);
   state.holidays.sort((a, b) => a.date.localeCompare(b.date));
   closeModal('holidayModal');
-  saveHolidayRecord(holiday); // field-level save
-  saveState();
+  saveHolidayRecord(holiday);
   renderAll();
 }
 
 function deleteHoliday(id) {
   state.holidays = state.holidays.filter(h => h.id !== id);
-  deleteHolidayRecord(id); // field-level delete
-  saveState();
+  deleteHolidayRecord(id);
   renderAll();
 }
 
@@ -13054,8 +13123,7 @@ function toggleLeave(personId, dateKey) {
     type: newType
   });
 
-  saveLeaveRecord(personId, dateKey, newType === 'Cleared' ? '' : newType); // field-level save
-  saveState();
+  saveLeaveRecord(personId, dateKey, newType === 'Cleared' ? '' : newType);
   renderLeaveCalendar();
 }
 
