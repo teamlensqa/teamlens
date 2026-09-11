@@ -3066,6 +3066,60 @@ async function deleteDevPod(id) {
   } catch(e) { console.warn('deleteDevPod error:', e); showToastMsg('❌ Could not delete POD'); return false; }
 }
 
+// ── VM Groups ("Manage Groups" in Infra Hub) — team-scoped ──
+async function loadVMPods() {
+  if (!sbClient) return;
+  try {
+    const { data, error } = await sbClient
+      .from('vm_pods')
+      .select('*')
+      .eq('team_id', currentTeamId || 'agent-qa')
+      .order('sort_order', { ascending: true });
+    if (error) throw error;
+    vmPodsList = data || [];
+  } catch(e) { console.warn('loadVMPods error:', e); }
+}
+
+async function addVMPodDB(name) {
+  if (!sbClient || !name) return false;
+  if (vmPodsList.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+    showToastMsg('⚠ A group with that name already exists');
+    return false;
+  }
+  try {
+    const newPod = { id: uid(), name, team_id: currentTeamId || 'agent-qa', sort_order: vmPodsList.length };
+    const { error } = await sbClient.from('vm_pods').insert(newPod);
+    if (error) throw error;
+    vmPodsList.push(newPod);
+    return true;
+  } catch(e) { console.warn('addVMPodDB error:', e); showToastMsg('❌ Could not add group'); return false; }
+}
+
+async function renameVMPodDB(id, newName) {
+  if (!sbClient || !id || !newName) return false;
+  try {
+    const { error } = await sbClient.from('vm_pods').update({ name: newName }).eq('id', id);
+    if (error) throw error;
+    const pod = vmPodsList.find(p => p.id === id);
+    if (pod) {
+      const oldName = pod.name;
+      pod.name = newName;
+      (state.vms || []).forEach(vm => { if (vm.pod === oldName) { vm.pod = newName; saveVMRecord(vm); } });
+    }
+    return true;
+  } catch(e) { console.warn('renameVMPodDB error:', e); showToastMsg('❌ Could not rename group'); return false; }
+}
+
+async function deleteVMPodDB(id) {
+  if (!sbClient || !id) return false;
+  try {
+    const { error } = await sbClient.from('vm_pods').delete().eq('id', id);
+    if (error) throw error;
+    vmPodsList = vmPodsList.filter(p => p.id !== id);
+    return true;
+  } catch(e) { console.warn('deleteVMPodDB error:', e); showToastMsg('❌ Could not delete group'); return false; }
+}
+
 async function loadEngineeringBuilds() {
   if (!sbClient) return;
   try {
@@ -3338,6 +3392,38 @@ function initSeparateTableRealtime() {
       renderAll();
     })
     .subscribe();
+
+  // Dev PODs realtime
+  sbClient.channel('dev-pods-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'dev_pods' }, (payload) => {
+      if (payload.eventType === 'DELETE') {
+        devPodsList = devPodsList.filter(p => p.id !== payload.old?.id);
+      } else {
+        const pod = payload.new;
+        if (!pod || (pod.team_id && pod.team_id !== currentTeamId)) return;
+        const idx = devPodsList.findIndex(p => p.id === pod.id);
+        if (idx >= 0) devPodsList[idx] = pod;
+        else devPodsList.push(pod);
+      }
+      populateDevPodDropdowns();
+      renderAll();
+    }).subscribe();
+
+  // VM Groups realtime
+  sbClient.channel('vm-pods-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'vm_pods' }, (payload) => {
+      if (payload.eventType === 'DELETE') {
+        vmPodsList = vmPodsList.filter(p => p.id !== payload.old?.id);
+      } else {
+        const pod = payload.new;
+        if (!pod || (pod.team_id && pod.team_id !== currentTeamId)) return;
+        const idx = vmPodsList.findIndex(p => p.id === pod.id);
+        if (idx >= 0) vmPodsList[idx] = pod;
+        else vmPodsList.push(pod);
+      }
+      populateVMPodDropdowns();
+      renderAll();
+    }).subscribe();
 
   console.log('[Realtime] Separate table subscriptions active');
 }
@@ -4060,6 +4146,7 @@ let appInitialized = false;
 let currentUserTeamIds = ['agent-qa']; // teams this user belongs to
 let currentTeamId = null;              // the ACTIVE team for this session
 let devPodsList = []; // [{id, name, team_id}] for the active team, loaded fresh on team switch
+let vmPodsList = [];  // [{id, name, team_id}] VM groups for the active team
 const POD_PALETTE = [
   ['#dbeafe','#1d4ed8'], ['#dcfce7','#15803d'], ['#fce7f3','#9d174d'],
   ['#fef3c7','#b45309'], ['#fee2e2','#b91c1c'], ['#f3e8ff','#7e22ce'],
@@ -4442,10 +4529,6 @@ function seedVMData() {
   if (!state.vms) state.vms = [];
   if (state.vms.length > 0) { state.vmSeeded = true; return; }
   state.vmSeeded = true;
-
-  state.vmPods = ['Akash','Dikshit','Regression VMs','Automation VMs','Insider Testing',
-    'KLA Machines','Hot Folder','BJ','AppConnect Server',
-    'AppConnect Client O21','AppConnect Client O24','AppConnect Client O365'];
 
   const d = (pod,member,details,inUse,usedBy,startDate,endDate,expiry,notes) => ({
     id: uid(), pod, member:member||'', details, inUse:!!inUse,
@@ -5270,8 +5353,6 @@ async function loadState() {
       state.knowledgeResources = Array.isArray(parsed.knowledgeResources) ? parsed.knowledgeResources : [];
       state.importantLinks     = Array.isArray(parsed.importantLinks)     ? parsed.importantLinks     : [];
       state.allocations        = Array.isArray(parsed.allocations)        ? parsed.allocations        : [];
-      state.vmPods             = Array.isArray(parsed.vmPods)             ? parsed.vmPods             :
-        ['Akash','Dikshit','Regression VMs','Automation VMs','Insider Testing','KLA Machines','Hot Folder','BJ','AppConnect Server'];
       const _oldReviewRequests    = Array.isArray(parsed.reviewRequests)          ? parsed.reviewRequests          : [];
       state.reviewRequests          = _oldReviewRequests;
       state.buildDelayNotifications = Array.isArray(parsed.buildDelayNotifications) ? parsed.buildDelayNotifications : [];
@@ -5295,7 +5376,8 @@ async function loadState() {
         loadMergedBuildDates(),
         loadEngineeringBuilds(),
         loadReviewRequests(),
-        loadDevPods()
+        loadDevPods(),
+        loadVMPods()
       ]);
       populateDevPodDropdowns();
       // One-time migration: if the new dedicated tables came back empty but
@@ -5643,7 +5725,8 @@ async function manualBackup() {
       testPlans:          state.testPlans          || {},
       dailyPlan:          state.dailyPlan          || [],
       allocations:        state.allocations        || [],
-      vmPods:             state.vmPods             || [],
+      vmPods:             vmPodsList.map(p => p.name) || [],
+      devPods:            devPodsList.map(p => p.name) || [],
       reviewRequests:     state.reviewRequests     || [],
       buildDelayNotifications: state.buildDelayNotifications || [],
     };
@@ -6060,10 +6143,11 @@ function renderDashboard() {
 
       const allNotifs = (state.buildDelayNotifications || []).filter(n => !ackedIds.includes(n.projectId));
 
-      const notifs = isAdmin ? allNotifs : allNotifs.filter(n => {
+      const notifs = allNotifs.filter(n => {
         const proj = state.projects.find(p => p.id === n.projectId) ||
                      state.projects.find(p => p.name === n.projectName);
-        if (!proj) return false;
+        if (!proj) return false; // not in the currently active team — never show
+        if (isAdmin) return true; // admin sees all alerts within their current team
         // Direct name check — no dependency on currentPerson
         const myEmail = (currentUserEmail || '').toLowerCase().trim();
         const myPerson = state.people.find(p => (p.email||'').toLowerCase().trim() === myEmail);
@@ -7387,10 +7471,7 @@ function renderReviewPanel(plan) {
 }
 
 function getVMPods() {
-  if (!state.vmPods || state.vmPods.length === 0) {
-    state.vmPods = ['Akash','Dikshit','Regression VMs','Automation VMs','Insider Testing','KLA Machines','Hot Folder','BJ','AppConnect Server'];
-  }
-  return state.vmPods;
+  return vmPodsList.map(p => p.name);
 }
 
 function populateDevPodDropdowns() {
@@ -7519,7 +7600,6 @@ function openVMPodsModal() {
 }
 
 function renderVMPodsList() {
-  const pods = getVMPods();
   const listEl = document.getElementById('vmPodsList');
   if (!listEl) return;
 
@@ -7528,69 +7608,71 @@ function renderVMPodsList() {
     '#fef3c7:#b45309','#fce7f3:#9d174d','#dcfce7:#065f46','#e0e7ff:#3730a3','#fff7ed:#c2410c',
     '#f0fdf4:#16a34a','#fdf4ff:#9333ea','#fff1f2:#e11d48'];
 
-  if (pods.length === 0) {
-    listEl.innerHTML = '<div style="color:var(--text-faint); text-align:center; padding:16px; font-style:italic;">No groups yet. Add one below.</div>';
+  if (vmPodsList.length === 0) {
+    listEl.innerHTML = '<div style="color:var(--text-faint); text-align:center; padding:16px; font-style:italic;">No groups yet for this team. Add one below.</div>';
     return;
   }
 
-  listEl.innerHTML = pods.map((pod, i) => {
+  listEl.innerHTML = vmPodsList.map((pod, i) => {
     const [bg, fg] = (COLORS[i % COLORS.length]).split(':');
-    const vmCount = (state.vms || []).filter(v => v.pod === pod).length;
+    const vmCount = (state.vms || []).filter(v => v.pod === pod.name).length;
     return `
       <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--panel-2); border:1px solid var(--border-soft); border-radius:10px;">
-        <span style="background:${bg}; color:${fg}; padding:3px 10px; border-radius:6px; font-size:11.5px; font-weight:700; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(pod)}</span>
+        <span style="background:${bg}; color:${fg}; padding:3px 10px; border-radius:6px; font-size:11.5px; font-weight:700; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(pod.name)}</span>
         <span style="font-size:11px; color:var(--text-faint); white-space:nowrap; flex-shrink:0;">${vmCount} VM${vmCount !== 1 ? 's' : ''}</span>
-        <button onclick="renameVMPod(${i})" class="icon-btn edit" title="Rename" style="flex-shrink:0;">✎</button>
-        <button onclick="deleteVMPod(${i})" class="icon-btn" title="Delete" style="flex-shrink:0; ${vmCount > 0 ? 'opacity:0.4; cursor:not-allowed;' : ''}">✕</button>
+        <button onclick="renameVMPod('${pod.id}')" class="icon-btn edit" title="Rename" style="flex-shrink:0;">✎</button>
+        <button onclick="deleteVMPod('${pod.id}')" class="icon-btn" title="Delete" style="flex-shrink:0; ${vmCount > 0 ? 'opacity:0.4; cursor:not-allowed;' : ''}">✕</button>
       </div>`;
   }).join('');
 }
 
-function addVMPod() {
+async function addVMPod() {
   const input = document.getElementById('vmNewPodInput');
   const name = input.value.trim();
   if (!name) return;
-  if (getVMPods().includes(name)) { alert('Group already exists.'); return; }
-  state.vmPods.push(name);
-  input.value = '';
-  saveState();
-  renderVMPodsList();
-  populateVMPodDropdowns();
-  showToastMsg(`✓ Group "${name}" added`);
+  const ok = await addVMPodDB(name);
+  if (ok) {
+    input.value = '';
+    renderVMPodsList();
+    populateVMPodDropdowns();
+    showToastMsg(`✓ Group "${name}" added to ${TEAM_NAMES[currentTeamId] || currentTeamId}`);
+  }
 }
 
-function renameVMPod(index) {
-  const pods = getVMPods();
-  const oldName = pods[index];
+async function renameVMPod(id) {
+  const pod = vmPodsList.find(p => p.id === id);
+  if (!pod) return;
+  const oldName = pod.name;
   const newName = prompt(`Rename group "${oldName}" to:`, oldName);
   if (!newName || newName.trim() === oldName) return;
   const trimmed = newName.trim();
-  if (pods.includes(trimmed)) { alert('A group with that name already exists.'); return; }
-  // Update all VMs using old pod name
-  snapshotState(`Rename VM group: ${oldName} → ${trimmed}`);
-  state.vmPods[index] = trimmed;
-  (state.vms || []).forEach(vm => { if (vm.pod === oldName) vm.pod = trimmed; });
-  saveState();
-  renderVMPodsList();
-  populateVMPodDropdowns();
-  renderVMRepo();
-  showToastMsg(`✓ Renamed "${oldName}" → "${trimmed}"`);
+  if (vmPodsList.some(p => p.id !== id && p.name.toLowerCase() === trimmed.toLowerCase())) {
+    alert('A group with that name already exists.'); return;
+  }
+  const ok = await renameVMPodDB(id, trimmed);
+  if (ok) {
+    renderVMPodsList();
+    populateVMPodDropdowns();
+    renderVMRepo();
+    showToastMsg(`✓ Renamed "${oldName}" → "${trimmed}"`);
+  }
 }
 
-function deleteVMPod(index) {
-  const pods = getVMPods();
-  const name = pods[index];
-  const vmCount = (state.vms || []).filter(v => v.pod === name).length;
+async function deleteVMPod(id) {
+  const pod = vmPodsList.find(p => p.id === id);
+  if (!pod) return;
+  const vmCount = (state.vms || []).filter(v => v.pod === pod.name).length;
   if (vmCount > 0) {
-    alert(`Cannot delete "${name}" — it has ${vmCount} VM(s). Remove or reassign those VMs first.`);
+    alert(`Cannot delete "${pod.name}" — it has ${vmCount} VM(s). Remove or reassign those VMs first.`);
     return;
   }
-  if (!confirm(`Delete group "${name}"?`)) return;
-  state.vmPods.splice(index, 1);
-  saveState();
-  renderVMPodsList();
-  populateVMPodDropdowns();
-  showToastMsg(`✓ Group "${name}" deleted`);
+  if (!confirm(`Delete group "${pod.name}"?`)) return;
+  const ok = await deleteVMPodDB(id);
+  if (ok) {
+    renderVMPodsList();
+    populateVMPodDropdowns();
+    showToastMsg(`✓ Group "${pod.name}" deleted`);
+  }
 }
 
 
@@ -12173,6 +12255,8 @@ function _checkMyMilestoneNotifications() {
 function checkBuildDelayNotifications() {
   (state.buildDelayNotifications || []).forEach(n => {
     if (n.acknowledged) return;
+    const proj = state.projects.find(p => p.id === n.projectId);
+    if (!proj) return; // belongs to a different team — don't surface here
     if (n.type === 'late') addNotification('build_delay', 'Build delayed ' + n.delayDays + 'd — ' + n.projectName, 'Planned: ' + formatDateDisplay(n.plannedDate) + ' · Actual: ' + formatDateDisplay(n.actualDate), n.projectId);
     else if (n.type === 'early') addNotification('build_early', 'Build arrived ' + n.delayDays + 'd early — ' + n.projectName, 'Milestones shifted earlier', n.projectId);
   });
