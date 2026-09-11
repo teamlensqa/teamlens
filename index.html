@@ -2916,6 +2916,98 @@ async function loadTestPlans() {
   } catch(e) { console.warn('loadTestPlans error:', e); }
 }
 
+// Load all merged build date rows from dedicated table
+async function loadMergedBuildDates() {
+  if (!sbClient) return;
+  try {
+    const { data, error } = await sbClient
+      .from('merged_build_dates')
+      .select('data')
+      .order('updated_at', { ascending: true });
+    if (error) throw error;
+    state.mergedBuildDates = (data || []).map(r => r.data);
+  } catch(e) { console.warn('loadMergedBuildDates error:', e); }
+}
+
+async function saveMergedBuildDateRow(row) {
+  if (!sbClient || !row || !row.id) return false;
+  try {
+    const { error } = await sbClient.from('merged_build_dates').upsert({
+      id: row.id,
+      data: row,
+      updated_at: new Date().toISOString()
+    });
+    if (error) { console.error('saveMergedBuildDateRow error:', error.message); return false; }
+    return true;
+  } catch(e) { console.warn('saveMergedBuildDateRow error:', e); return false; }
+}
+
+async function deleteMergedBuildDateRowDB(rowId) {
+  if (!sbClient || !rowId) return false;
+  try {
+    const { error } = await sbClient.from('merged_build_dates').delete().eq('id', rowId);
+    if (error) { console.error('deleteMergedBuildDateRowDB error:', error.message); return false; }
+    return true;
+  } catch(e) { console.warn('deleteMergedBuildDateRowDB error:', e); return false; }
+}
+
+// Load all engineering build rows from dedicated table
+async function loadEngineeringBuilds() {
+  if (!sbClient) return;
+  try {
+    const { data, error } = await sbClient
+      .from('engineering_builds')
+      .select('data')
+      .order('updated_at', { ascending: true });
+    if (error) throw error;
+    state.engineeringBuilds = (data || []).map(r => r.data);
+  } catch(e) { console.warn('loadEngineeringBuilds error:', e); }
+}
+
+async function saveEngBuildRow(entry) {
+  if (!sbClient || !entry || !entry.id) return false;
+  try {
+    const { error } = await sbClient.from('engineering_builds').upsert({
+      id: entry.id,
+      data: entry,
+      updated_at: new Date().toISOString()
+    });
+    if (error) { console.error('saveEngBuildRow error:', error.message); return false; }
+    return true;
+  } catch(e) { console.warn('saveEngBuildRow error:', e); return false; }
+}
+
+async function deleteEngBuildEntryDB(id) {
+  if (!sbClient || !id) return false;
+  try {
+    const { error } = await sbClient.from('engineering_builds').delete().eq('id', id);
+    if (error) { console.error('deleteEngBuildEntryDB error:', error.message); return false; }
+    return true;
+  } catch(e) { console.warn('deleteEngBuildEntryDB error:', e); return false; }
+}
+
+// Migrate any existing merged build dates / engineering builds sitting in the
+// old shared blob into the new dedicated tables — one-time, runs only if the
+// new tables are still empty for this data.
+async function migrateBuildDataToSeparateTables(oldMergedBuildDates, oldEngineeringBuilds) {
+  try {
+    if (Array.isArray(oldMergedBuildDates) && oldMergedBuildDates.length > 0) {
+      const { count } = await sbClient.from('merged_build_dates').select('id', { count: 'exact', head: true });
+      if (!count || count === 0) {
+        for (const row of oldMergedBuildDates) { if (row && row.id) await saveMergedBuildDateRow(row); }
+        console.log('[Migration] Merged build dates migrated:', oldMergedBuildDates.length);
+      }
+    }
+    if (Array.isArray(oldEngineeringBuilds) && oldEngineeringBuilds.length > 0) {
+      const { count } = await sbClient.from('engineering_builds').select('id', { count: 'exact', head: true });
+      if (!count || count === 0) {
+        for (const entry of oldEngineeringBuilds) { if (entry && entry.id) await saveEngBuildRow(entry); }
+        console.log('[Migration] Engineering builds migrated:', oldEngineeringBuilds.length);
+      }
+    }
+  } catch (e) { console.warn('[Migration] Build data migration error:', e); }
+}
+
 // Load all daily plan entries
 async function loadDailyPlan() {
   if (!sbClient) return;
@@ -3044,6 +3136,46 @@ function initSeparateTableRealtime() {
         state.dailyPlan = state.dailyPlan.filter(e => e.id !== payload.old?.id);
       }
       markDirty('dailyplan', 'dashboard');
+      renderAll();
+    })
+    .subscribe();
+
+  // Merged build dates realtime
+  sbClient.channel('merged-build-dates-changes')
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'merged_build_dates'
+    }, async (payload) => {
+      if (!state.mergedBuildDates) state.mergedBuildDates = [];
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const row = payload.new?.data;
+        if (!row) return;
+        const idx = state.mergedBuildDates.findIndex(r => r.id === row.id);
+        if (idx >= 0) state.mergedBuildDates[idx] = row;
+        else state.mergedBuildDates.push(row);
+      } else if (payload.eventType === 'DELETE') {
+        state.mergedBuildDates = state.mergedBuildDates.filter(r => r.id !== payload.old?.id);
+      }
+      markDirty('dailyplan');
+      renderAll();
+    })
+    .subscribe();
+
+  // Engineering builds realtime
+  sbClient.channel('engineering-builds-changes')
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'engineering_builds'
+    }, async (payload) => {
+      if (!state.engineeringBuilds) state.engineeringBuilds = [];
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const entry = payload.new?.data;
+        if (!entry) return;
+        const idx = state.engineeringBuilds.findIndex(e => e.id === entry.id);
+        if (idx >= 0) state.engineeringBuilds[idx] = entry;
+        else state.engineeringBuilds.push(entry);
+      } else if (payload.eventType === 'DELETE') {
+        state.engineeringBuilds = state.engineeringBuilds.filter(e => e.id !== payload.old?.id);
+      }
+      markDirty('buildreport');
       renderAll();
     })
     .subscribe();
@@ -4872,8 +5004,10 @@ async function loadState() {
       state.buildDelayNotifications = Array.isArray(parsed.buildDelayNotifications) ? parsed.buildDelayNotifications : [];
       state.notifications           = [];
       state.dismissedAlerts         = Array.isArray(parsed.dismissedAlerts)         ? parsed.dismissedAlerts         : [];
-      state.mergedBuildDates        = Array.isArray(parsed.mergedBuildDates)        ? parsed.mergedBuildDates        : [];
-      state.engineeringBuilds       = Array.isArray(parsed.engineeringBuilds)       ? parsed.engineeringBuilds       : [];
+      const _oldMergedBuildDates  = Array.isArray(parsed.mergedBuildDates)  ? parsed.mergedBuildDates  : [];
+      const _oldEngineeringBuilds = Array.isArray(parsed.engineeringBuilds) ? parsed.engineeringBuilds : [];
+      state.mergedBuildDates  = _oldMergedBuildDates;
+      state.engineeringBuilds = _oldEngineeringBuilds;
 
       // Load from field tables — will override resource_planner data if rows exist
       await Promise.all([
@@ -4884,8 +5018,13 @@ async function loadState() {
         loadKnowledgeResources(),
         loadImportantLinks(),
         loadReleases(),
-        loadDailyPlan()
+        loadDailyPlan(),
+        loadMergedBuildDates(),
+        loadEngineeringBuilds()
       ]);
+      // One-time migration: if the new dedicated tables came back empty but
+      // the old shared blob had data, copy it over so nothing is lost.
+      migrateBuildDataToSeparateTables(_oldMergedBuildDates, _oldEngineeringBuilds);
       // Load test plans — skip currently selected project if draft exists
       if (selectedTestPlanProjectId) {
         const hasDraft = !!localStorage.getItem(DRAFT_KEY_PREFIX + selectedTestPlanProjectId);
@@ -4910,8 +5049,6 @@ async function loadState() {
 
 let _stateVersion = null; // Track DB version we loaded from
 
-let _recentlyDeletedIds = { mergedBuildDates: new Set(), engineeringBuilds: new Set() };
-
 async function saveState() {
   const hasAnyEdit = Object.values(currentUserPermissions).some(v => v === 'edit');
   if (currentUserRole !== 'admin' && !hasAnyEdit) {
@@ -4932,6 +5069,8 @@ async function saveState() {
       vms: _v,
       knowledgeResources: _k,
       importantLinks: _i,
+      mergedBuildDates: _mbd,
+      engineeringBuilds: _eb,
       ...stateToSave
     } = state;
 
@@ -4948,24 +5087,6 @@ async function saveState() {
         .maybeSingle();
       if (currentRow && currentRow.data && typeof currentRow.data === 'object') {
         mergedStateToSave = { ...currentRow.data, ...stateToSave };
-
-        // These two are shared, id-keyed arrays that multiple people edit
-        // around the same time — merge item-by-item instead of letting
-        // whichever save lands last silently wipe out the other person's
-        // concurrent addition.
-        const mergeArrayById = (serverArr, localArr, deletedIds) => {
-          if (!Array.isArray(serverArr)) return Array.isArray(localArr) ? localArr : [];
-          if (!Array.isArray(localArr)) return serverArr;
-          const merged = new Map(serverArr.filter(x => x && x.id && !deletedIds.has(x.id)).map(x => [x.id, x]));
-          localArr.forEach(item => { if (item && item.id) merged.set(item.id, item); });
-          return Array.from(merged.values());
-        };
-        if ('mergedBuildDates' in stateToSave) {
-          mergedStateToSave.mergedBuildDates = mergeArrayById(currentRow.data.mergedBuildDates, stateToSave.mergedBuildDates, _recentlyDeletedIds.mergedBuildDates);
-        }
-        if ('engineeringBuilds' in stateToSave) {
-          mergedStateToSave.engineeringBuilds = mergeArrayById(currentRow.data.engineeringBuilds, stateToSave.engineeringBuilds, _recentlyDeletedIds.engineeringBuilds);
-        }
       }
     } catch (mergeErr) {
       console.warn('Could not fetch latest state to merge — saving local snapshot as-is:', mergeErr);
@@ -5002,6 +5123,8 @@ async function saveState() {
         projects:           state.projects           || [],
         testPlans:          state.testPlans          || {},
         dailyPlan:          state.dailyPlan          || [],
+        mergedBuildDates:   state.mergedBuildDates    || [],
+        engineeringBuilds:  state.engineeringBuilds   || [],
       };
       sbClient.from('backups').insert({
         saved_by: currentUserEmail,
@@ -14094,6 +14217,7 @@ function renderMergedBuildDates() {
 }
 
 let _mergedBuildDatesDirty = false;
+let _mergedBuildDatesPendingDeletes = [];
 
 function markMergedBuildDirty() {
   _mergedBuildDatesDirty = true;
@@ -14111,18 +14235,28 @@ function markMergedBuildDirty() {
 async function saveMergedBuildDatesChanges() {
   const btn = document.getElementById('mergedBuildSaveBtn');
   const status = document.getElementById('mergedBuildSaveStatus');
-  const ok = await saveState();
-  if (ok) {
-    _mergedBuildDatesDirty = false;
-    if (btn) {
-      btn.disabled = true;
-      btn.style.cursor = 'not-allowed';
-      btn.style.background = 'var(--panel-2)';
-      btn.style.color = 'var(--text-faint)';
+  try {
+    const results = await Promise.all([
+      ...(state.mergedBuildDates || []).map(row => saveMergedBuildDateRow(row)),
+      ..._mergedBuildDatesPendingDeletes.map(id => deleteMergedBuildDateRowDB(id))
+    ]);
+    const ok = results.every(r => r !== false);
+    if (ok) {
+      _mergedBuildDatesDirty = false;
+      _mergedBuildDatesPendingDeletes = [];
+      if (btn) {
+        btn.disabled = true;
+        btn.style.cursor = 'not-allowed';
+        btn.style.background = 'var(--panel-2)';
+        btn.style.color = 'var(--text-faint)';
+      }
+      if (status) status.style.display = 'none';
+      showToastMsg('✅ Saved');
+    } else {
+      showToastMsg('❌ Could not save — check your edit access and try again');
     }
-    if (status) status.style.display = 'none';
-    showToastMsg('✅ Saved');
-  } else {
+  } catch (e) {
+    console.error('saveMergedBuildDatesChanges error:', e);
     showToastMsg('❌ Could not save — check your edit access and try again');
   }
 }
@@ -14144,8 +14278,7 @@ function updateMergedBuildDateField(rowId, field, value) {
 
 function deleteMergedBuildDateRow(rowId) {
   state.mergedBuildDates = state.mergedBuildDates.filter(r => r.id !== rowId);
-  _recentlyDeletedIds.mergedBuildDates.add(rowId);
-  setTimeout(() => _recentlyDeletedIds.mergedBuildDates.delete(rowId), 60000);
+  _mergedBuildDatesPendingDeletes.push(rowId);
   renderMergedBuildDates();
   markMergedBuildDirty();
 }
@@ -14514,7 +14647,7 @@ async function saveEngBuildEntry() {
   } else {
     state.engineeringBuilds.push(entry);
   }
-  const ok = await saveState();
+  const ok = await saveEngBuildRow(entry);
   closeEngBuildModal();
   renderEngBuildReport();
   if (ok) {
@@ -14527,10 +14660,8 @@ async function saveEngBuildEntry() {
 async function deleteEngBuildEntry(id) {
   if (!confirm('Delete this build entry?')) return;
   state.engineeringBuilds = (state.engineeringBuilds || []).filter(e => e.id !== id);
-  _recentlyDeletedIds.engineeringBuilds.add(id);
-  setTimeout(() => _recentlyDeletedIds.engineeringBuilds.delete(id), 60000);
   renderEngBuildReport();
-  const ok = await saveState();
+  const ok = await deleteEngBuildEntryDB(id);
   if (ok) {
     showToastMsg('🗑️ Build entry deleted');
   } else {
