@@ -11780,8 +11780,8 @@ function renderProjects() {
     const jiraId = extractJiraId(p.jiraUrl);
     const jiraCell = jiraId
       ? (p.jiraUrl && p.jiraUrl.startsWith('http')
-          ? `<a href="${escapeHtml(p.jiraUrl)}" target="_blank" style="display:inline-flex; align-items:center; gap:4px; background:#dbeafe; color:#1d4ed8; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:600; text-decoration:none;">🎫 ${jiraId}</a>`
-          : `<span style="background:#dbeafe; color:#1d4ed8; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:600;">🎫 ${jiraId}</span>`)
+          ? `<a href="${escapeHtml(p.jiraUrl)}" target="_blank" style="display:inline-flex; align-items:center; gap:4px; background:#dbeafe; color:#1d4ed8; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:600; text-decoration:none; white-space:nowrap;">🎫 ${jiraId}</a>`
+          : `<span style="background:#dbeafe; color:#1d4ed8; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:600; white-space:nowrap;">🎫 ${jiraId}</span>`)
       : '<span style="color:var(--text-faint);">—</span>';
     const podColors = getPodColor(p.devPod) || ['#f1f5f9','#475569'];
     const [pbg, pfg] = podColors;
@@ -13546,8 +13546,8 @@ function renderSummary() {
     const jiraId = extractJiraId(proj.jiraUrl);
     const jiraCell = jiraId
       ? (proj.jiraUrl && proj.jiraUrl.startsWith('http')
-          ? `<a href="${escapeHtml(proj.jiraUrl)}" target="_blank" style="display:inline-flex; align-items:center; gap:4px; background:#dbeafe; color:#1d4ed8; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:600; text-decoration:none;">🎫 ${jiraId}</a>`
-          : `<span style="background:#dbeafe; color:#1d4ed8; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:600;">🎫 ${jiraId}</span>`)
+          ? `<a href="${escapeHtml(proj.jiraUrl)}" target="_blank" style="display:inline-flex; align-items:center; gap:4px; background:#dbeafe; color:#1d4ed8; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:600; text-decoration:none; white-space:nowrap;">🎫 ${jiraId}</a>`
+          : `<span style="background:#dbeafe; color:#1d4ed8; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:600; white-space:nowrap;">🎫 ${jiraId}</span>`)
       : '<span style="color:var(--text-faint);">—</span>';
 
     const podC = getPodColor(proj.devPod) || ['#f1f5f9','#475569'];
