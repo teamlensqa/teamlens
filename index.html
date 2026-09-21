@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- TeamLens build marker: 2026-09-11-v7-archive-expand-fix -->
+<!-- TeamLens build marker: 2026-09-11-v8-leave-scroll-fix -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -436,7 +436,7 @@
   .cal-cell.cal-header.name { z-index: 9; background: var(--panel-2); position: sticky; top: 0; left: 0; }
 
   /* Leave Calendar only — scoped so Daily Plan (which shares .cal-grid/.cal-cell) is never affected */
-  #calGrid { gap: 2px; }
+  #calGrid { gap: 2px; width: max-content; }
   #calGrid .cal-cell { min-height: 32px; padding: 2px 3px; display:flex; align-items:center; justify-content:center; white-space:nowrap; }
   #calGrid .cal-cell.name { justify-content:flex-start; font-weight:500; }
   #calGrid .cal-cell.leave-pl  { background: #fef3c7; color: #b45309; cursor: pointer; font-weight: 700; transition: transform 0.1s, box-shadow 0.1s; border-radius: 5px; }
