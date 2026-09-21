@@ -423,22 +423,29 @@
   .pct-label { font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 34px; text-align: right; }
 
   .cal-grid {
-    display: grid; gap: 2px; background: var(--border-soft);
+    display: grid; gap: 1px; background: var(--border-soft);
     border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; font-size: 11px;
   }
-  .cal-cell { background: var(--panel); padding: 2px 3px; text-align: center; color: var(--text-faint); min-height: 32px; font-size: 11px; display:flex; align-items:center; justify-content:center; white-space:nowrap; }
-  .cal-cell.name { background: var(--panel-2); text-align: left; padding: 2px 8px; color: var(--text); font-size: 11.5px; position: sticky; left: 0; z-index: 5; box-shadow: 2px 0 4px rgba(0,0,0,0.06); min-width: 120px; white-space: nowrap; justify-content:flex-start; font-weight:500; }
-  .cal-cell.leave-pl  { background: #fef3c7; color: #b45309; cursor: pointer; font-weight: 700; transition: transform 0.1s, box-shadow 0.1s; border-radius: 5px; }
-  .cal-cell.leave-upl { background: #fee2e2; color: #dc2626; cursor: pointer; font-weight: 700; transition: transform 0.1s, box-shadow 0.1s; border-radius: 5px; }
-  .cal-cell.leave-wfh { background: #dbeafe; color: #1d4ed8; cursor: pointer; font-weight: 700; transition: transform 0.1s, box-shadow 0.1s; border-radius: 5px; }
-  .cal-cell.leave-pl:hover, .cal-cell.leave-upl:hover, .cal-cell.leave-wfh:hover { transform: scale(1.08); box-shadow: 0 2px 6px rgba(0,0,0,0.15); z-index: 2; position: relative; }
+  .cal-cell { background: var(--panel); padding: 2px 4px; text-align: center; color: var(--text-faint); min-height: 28px; font-size: 11px; }
+  .cal-cell.name { background: var(--panel-2); text-align: left; padding: 2px 8px; color: var(--text); font-size: 11.5px; position: sticky; left: 0; z-index: 5; box-shadow: 2px 0 4px rgba(0,0,0,0.06); min-width: 120px; white-space: nowrap; }
   .cal-cell.weekend   { background: var(--panel-2); color: var(--border); cursor: not-allowed; font-size: 10px; }
   .cal-cell.holiday-day { background: var(--panel-2); color: var(--border); cursor: not-allowed; font-size: 10px; }
-  .cal-cell.day-cell  { cursor: pointer; transition: background 0.15s; vertical-align: top; min-height: 32px; border-radius: 5px; }
-  .cal-cell.day-cell:hover { background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
-  .cal-cell.today-col { box-shadow: inset 0 0 0 1.5px var(--accent); }
+  .cal-cell.day-cell  { cursor: pointer; transition: background 0.1s; vertical-align: top; min-height: 28px; }
+  .cal-cell.day-cell:hover { background: var(--panel-2); }
   .cal-header { background: var(--panel-2) !important; color: var(--text-faint); font-weight: 700; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em; position: sticky; top: 0; z-index: 6; }
   .cal-cell.cal-header.name { z-index: 9; background: var(--panel-2); position: sticky; top: 0; left: 0; }
+
+  /* Leave Calendar only — scoped so Daily Plan (which shares .cal-grid/.cal-cell) is never affected */
+  #calGrid { gap: 2px; }
+  #calGrid .cal-cell { min-height: 32px; padding: 2px 3px; display:flex; align-items:center; justify-content:center; white-space:nowrap; }
+  #calGrid .cal-cell.name { justify-content:flex-start; font-weight:500; }
+  #calGrid .cal-cell.leave-pl  { background: #fef3c7; color: #b45309; cursor: pointer; font-weight: 700; transition: transform 0.1s, box-shadow 0.1s; border-radius: 5px; }
+  #calGrid .cal-cell.leave-upl { background: #fee2e2; color: #dc2626; cursor: pointer; font-weight: 700; transition: transform 0.1s, box-shadow 0.1s; border-radius: 5px; }
+  #calGrid .cal-cell.leave-wfh { background: #dbeafe; color: #1d4ed8; cursor: pointer; font-weight: 700; transition: transform 0.1s, box-shadow 0.1s; border-radius: 5px; }
+  #calGrid .cal-cell.leave-pl:hover, #calGrid .cal-cell.leave-upl:hover, #calGrid .cal-cell.leave-wfh:hover { transform: scale(1.08); box-shadow: 0 2px 6px rgba(0,0,0,0.15); z-index: 2; position: relative; }
+  #calGrid .cal-cell.day-cell { border-radius: 5px; }
+  #calGrid .cal-cell.day-cell:hover { background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+  #calGrid .cal-cell.today-col { box-shadow: inset 0 0 0 1.5px var(--accent); }
 
   .cal-scroll-wrap {
     overflow-x: auto; overflow-y: visible; border-radius: 12px;
@@ -1547,7 +1554,7 @@
           <button class="ghost" onclick="shiftMonth(1)">Next ›</button>
         </div>
       </div>
-      <div class="cal-scroll-wrap">
+      <div class="cal-scroll-wrap" style="width:100%; max-width:100%;">
         <div class="cal-grid" id="calGrid"></div>
       </div>
       <div style="display:flex; gap:14px; margin-top:10px; font-size:11px; color:var(--text-faint); flex-wrap:wrap; align-items:center;">
