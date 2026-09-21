@@ -423,18 +423,20 @@
   .pct-label { font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 34px; text-align: right; }
 
   .cal-grid {
-    display: grid; gap: 1px; background: var(--border-soft);
+    display: grid; gap: 2px; background: var(--border-soft);
     border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; font-size: 11px;
   }
-  .cal-cell { background: var(--panel); padding: 2px 4px; text-align: center; color: var(--text-faint); min-height: 28px; font-size: 11px; }
-  .cal-cell.name { background: var(--panel-2); text-align: left; padding: 2px 8px; color: var(--text); font-size: 11.5px; position: sticky; left: 0; z-index: 5; box-shadow: 2px 0 4px rgba(0,0,0,0.06); min-width: 120px; white-space: nowrap; }
-  .cal-cell.leave-pl  { background: #fef3c7; color: #b45309; cursor: pointer; font-weight: 700; }
-  .cal-cell.leave-upl { background: #fee2e2; color: #dc2626; cursor: pointer; font-weight: 700; }
-  .cal-cell.leave-wfh { background: #dbeafe; color: #1d4ed8; cursor: pointer; font-weight: 700; }
+  .cal-cell { background: var(--panel); padding: 2px 4px; text-align: center; color: var(--text-faint); min-height: 32px; font-size: 11px; display:flex; align-items:center; justify-content:center; }
+  .cal-cell.name { background: var(--panel-2); text-align: left; padding: 2px 8px; color: var(--text); font-size: 11.5px; position: sticky; left: 0; z-index: 5; box-shadow: 2px 0 4px rgba(0,0,0,0.06); min-width: 120px; white-space: nowrap; justify-content:flex-start; font-weight:500; }
+  .cal-cell.leave-pl  { background: #fef3c7; color: #b45309; cursor: pointer; font-weight: 700; transition: transform 0.1s, box-shadow 0.1s; border-radius: 5px; }
+  .cal-cell.leave-upl { background: #fee2e2; color: #dc2626; cursor: pointer; font-weight: 700; transition: transform 0.1s, box-shadow 0.1s; border-radius: 5px; }
+  .cal-cell.leave-wfh { background: #dbeafe; color: #1d4ed8; cursor: pointer; font-weight: 700; transition: transform 0.1s, box-shadow 0.1s; border-radius: 5px; }
+  .cal-cell.leave-pl:hover, .cal-cell.leave-upl:hover, .cal-cell.leave-wfh:hover { transform: scale(1.08); box-shadow: 0 2px 6px rgba(0,0,0,0.15); z-index: 2; position: relative; }
   .cal-cell.weekend   { background: var(--panel-2); color: var(--border); cursor: not-allowed; font-size: 10px; }
   .cal-cell.holiday-day { background: var(--panel-2); color: var(--border); cursor: not-allowed; font-size: 10px; }
-  .cal-cell.day-cell  { cursor: pointer; transition: background 0.1s; vertical-align: top; min-height: 28px; }
-  .cal-cell.day-cell:hover { background: var(--panel-2); }
+  .cal-cell.day-cell  { cursor: pointer; transition: background 0.15s; vertical-align: top; min-height: 32px; border-radius: 5px; }
+  .cal-cell.day-cell:hover { background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+  .cal-cell.today-col { box-shadow: inset 0 0 0 1.5px var(--accent); }
   .cal-header { background: var(--panel-2) !important; color: var(--text-faint); font-weight: 700; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em; position: sticky; top: 0; z-index: 6; }
   .cal-cell.cal-header.name { z-index: 9; background: var(--panel-2); position: sticky; top: 0; left: 0; }
 
@@ -1576,6 +1578,7 @@
         <tbody id="leaveSummaryBody"></tbody>
       </table>
       <div class="empty-state" id="leaveSummaryEmpty" style="display:none;">No leave days marked for this month.</div>
+      <div id="leaveSummaryTotals" style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;"></div>
     </div>
   </div>
 
@@ -13752,14 +13755,16 @@ function renderLeaveCalendar() {
   empty.style.display = 'none';
 
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  grid.style.gridTemplateColumns = `160px repeat(${daysInMonth}, minmax(26px, 1fr))`;
+  grid.style.gridTemplateColumns = `160px repeat(${daysInMonth}, 38px)`;
+  const todayKey = toDateKey(new Date());
 
   // Header row
   let html = `<div class="cal-cell name cal-header">Person</div>`;
   for (let d = 1; d <= daysInMonth; d++) {
     const dow = new Date(calYear, calMonth, d).getDay();
     const isWknd = dow === 0 || dow === 6;
-    html += `<div class="cal-cell cal-header" style="${isWknd ? 'background:#eef2f7; color:#c5cedb;' : ''}">${d}</div>`;
+    const isToday = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}` === todayKey;
+    html += `<div class="cal-cell cal-header${isToday ? ' today-col' : ''}" style="${isWknd ? 'background:#eef2f7; color:#c5cedb;' : ''}">${d}</div>`;
   }
 
   state.people.forEach(p => {
@@ -13771,20 +13776,21 @@ function renderLeaveCalendar() {
       const isWknd = dow === 0 || dow === 6;
       const isHoliday = state.holidays.some(h => h.date === dateKey);
       const leaveType = leaveMap[dateKey];
+      const todayClass = dateKey === todayKey ? ' today-col' : '';
 
       if (isWknd) {
-        html += `<div class="cal-cell weekend" title="Weekend">·</div>`;
+        html += `<div class="cal-cell weekend${todayClass}" title="Weekend">·</div>`;
       } else if (isHoliday) {
         const h = state.holidays.find(h => h.date === dateKey);
-        html += `<div class="cal-cell holiday-day" title="${escapeHtml(h?.name || 'Holiday')}">H</div>`;
+        html += `<div class="cal-cell holiday-day${todayClass}" title="${escapeHtml(h?.name || 'Holiday')}">H</div>`;
       } else if (leaveType === 'PL') {
-        html += `<div class="cal-cell leave-pl" onclick="toggleLeave('${p.id}','${dateKey}')" title="Planned Leave">PL</div>`;
+        html += `<div class="cal-cell leave-pl${todayClass}" onclick="toggleLeave('${p.id}','${dateKey}')" title="Planned Leave">🏖️</div>`;
       } else if (leaveType === 'UPL') {
-        html += `<div class="cal-cell leave-upl" onclick="toggleLeave('${p.id}','${dateKey}')" title="Unplanned Leave">UPL</div>`;
+        html += `<div class="cal-cell leave-upl${todayClass}" onclick="toggleLeave('${p.id}','${dateKey}')" title="Unplanned Leave">🤒</div>`;
       } else if (leaveType === 'WFH') {
-        html += `<div class="cal-cell leave-wfh" onclick="toggleLeave('${p.id}','${dateKey}')" title="Work From Home">WFH</div>`;
+        html += `<div class="cal-cell leave-wfh${todayClass}" onclick="toggleLeave('${p.id}','${dateKey}')" title="Work From Home">🏠</div>`;
       } else {
-        html += `<div class="cal-cell day-cell" onclick="toggleLeave('${p.id}','${dateKey}')"></div>`;
+        html += `<div class="cal-cell day-cell${todayClass}" onclick="toggleLeave('${p.id}','${dateKey}')"></div>`;
       }
     }
   });
@@ -13817,6 +13823,26 @@ function renderLeaveSummary() {
     const wfh = entries.filter(([,t]) => t === 'WFH');
     return { name: p.name, pl, upl, wfh, total: entries.length };
   }).filter(r => r.total > 0);
+
+  // Month-wide totals across everyone — rendered regardless of whether any rows exist
+  const totalsEl = document.getElementById('leaveSummaryTotals');
+  if (totalsEl) {
+    const totalPL  = rows.reduce((sum, r) => sum + r.pl.length, 0);
+    const totalUPL = rows.reduce((sum, r) => sum + r.upl.length, 0);
+    const totalWFH = rows.reduce((sum, r) => sum + r.wfh.length, 0);
+    const statCard = (label, value, bg, fg, icon) => `
+      <div style="flex:1; min-width:140px; background:${bg}; border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:10px;">
+        <span style="font-size:20px;">${icon}</span>
+        <div>
+          <div style="font-size:20px; font-weight:800; color:${fg}; line-height:1.1;">${value}</div>
+          <div style="font-size:11px; color:${fg}; opacity:0.85; font-weight:600;">${label}</div>
+        </div>
+      </div>`;
+    totalsEl.innerHTML =
+      statCard('Planned Leaves', totalPL, '#fef3c7', '#b45309', '🏖️') +
+      statCard('Unplanned Leaves', totalUPL, '#fee2e2', '#dc2626', '🤒') +
+      statCard('WFH', totalWFH, '#dbeafe', '#1d4ed8', '🏠');
+  }
 
   if (rows.length === 0) {
     tbody.innerHTML = '';
