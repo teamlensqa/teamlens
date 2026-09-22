@@ -1429,6 +1429,13 @@
           <input type="date" id="ebrGaTo" onchange="setEngBuildPeriod('custom')" style="font-size:12px; padding:5px 8px; width:150px;">
           <button class="ghost" onclick="document.getElementById('ebrGaFrom').value='';document.getElementById('ebrGaTo').value='';setEngBuildPeriod('all');" style="font-size:11px; padding:5px 10px; white-space:nowrap;">Clear dates</button>
         </div>
+        <span style="width:1px; height:20px; background:var(--border); flex-shrink:0;"></span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <label style="font-size:11px; color:var(--text-dim); font-weight:700; white-space:nowrap;">Feature:</label>
+          <input type="text" id="ebrFeatureFilter" list="ebrFeatureList" oninput="renderEngBuildReport()" placeholder="Search feature name…" style="font-size:12px; padding:5px 8px; width:220px;">
+          <datalist id="ebrFeatureList"></datalist>
+          <button class="ghost" onclick="document.getElementById('ebrFeatureFilter').value='';renderEngBuildReport();" style="font-size:11px; padding:5px 10px; white-space:nowrap;">Clear</button>
+        </div>
       </div>
 
       <div class="grid-4" id="ebrSummaryCards" style="margin-bottom:16px;"></div>
@@ -15060,6 +15067,12 @@ function populateEngBuildFilters() {
   pillsEl.innerHTML = periods.map(([key,label]) =>
     `<button onclick="setEngBuildPeriod('${key}')" style="font-size:11.5px; padding:5px 12px; border-radius:20px; border:1px solid ${ebrPeriod===key?'transparent':'var(--border)'}; background:${ebrPeriod===key?'linear-gradient(135deg,#7c3aed,#2563eb)':'transparent'}; color:${ebrPeriod===key?'white':'var(--text-dim)'}; cursor:pointer; font-weight:600;">${label}</button>`
   ).join('');
+
+  const featureListEl = document.getElementById('ebrFeatureList');
+  if (featureListEl) {
+    const names = [...new Set((state.projects || []).map(p => p.name).filter(Boolean))].sort();
+    featureListEl.innerHTML = names.map(n => `<option value="${escapeHtml(n)}">`).join('');
+  }
 }
 
 function renderEngBuildReport() {
@@ -15083,10 +15096,17 @@ function renderEngBuildReportInner() {
   if (!list) return;
 
   const compFilter = document.getElementById('ebrComponentFilter')?.value || '';
+  const featureFilter = (document.getElementById('ebrFeatureFilter')?.value || '').trim().toLowerCase();
   const { start, end } = getEngBuildPeriodRange();
 
   let builds = state.engineeringBuilds;
   if (compFilter) builds = builds.filter(b => b.component === compFilter);
+  if (featureFilter) {
+    builds = builds.filter(b => (b.taggedItemIds || []).some(id => {
+      const proj = state.projects.find(p => p.id === id);
+      return proj && proj.name && proj.name.toLowerCase().includes(featureFilter);
+    }));
+  }
   if (start || end) {
     builds = builds.filter(b => {
       if (!b.gaDate) return false;
@@ -15354,11 +15374,18 @@ async function deleteEngBuildEntry(id) {
 
 function openEngBuildReportInTab() {
   const compFilter = document.getElementById('ebrComponentFilter')?.value || '';
+  const featureFilter = (document.getElementById('ebrFeatureFilter')?.value || '').trim().toLowerCase();
   const { start, end } = getEngBuildPeriodRange();
   const periodLabels = { all: 'All time', fy: 'This FY', custom: 'Custom GA date range' };
 
   let builds = state.engineeringBuilds || [];
   if (compFilter) builds = builds.filter(b => b.component === compFilter);
+  if (featureFilter) {
+    builds = builds.filter(b => (b.taggedItemIds || []).some(id => {
+      const proj = state.projects.find(p => p.id === id);
+      return proj && proj.name && proj.name.toLowerCase().includes(featureFilter);
+    }));
+  }
   if (start || end) {
     builds = builds.filter(b => {
       if (!b.gaDate) return false;
@@ -15372,6 +15399,7 @@ function openEngBuildReportInTab() {
 
   let title = 'Engg Build Report — ' + periodLabels[ebrPeriod];
   if (compFilter) title += ' · ' + compFilter;
+  if (featureFilter) title += ' · Feature: ' + document.getElementById('ebrFeatureFilter').value.trim();
 
   const groups = {};
   builds.forEach(b => { const k = b.component || 'Unassigned'; (groups[k] = groups[k] || []).push(b); });
