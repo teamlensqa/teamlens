@@ -12745,6 +12745,7 @@ function renderGantt() {
   // Build bars
   const STATUS_COLORS = { 'Completed': '#22c55e', 'In progress': '#f59e0b', 'Blocked': '#ef4444', 'Not started': '#94a3b8' };
   let bars = '';
+  let stripes = '';
   let labels = '';
 
   projects.forEach((proj, i) => {
@@ -12758,6 +12759,9 @@ function renderGantt() {
 
     const color = STATUS_COLORS[proj.status] || '#94a3b8';
 
+    // Zebra row striping for readability
+    if (i % 2 === 1) stripes += `<rect x="0" y="${y}" width="${totalWidth}" height="${rowH}" fill="var(--panel-2)" opacity="0.4"/>`;
+
     const bar = (startStr, endStr, clr, opacity, h, yOff) => {
       if (!startStr || !endStr) return '';
       const s = new Date(startStr + 'T00:00:00');
@@ -12765,36 +12769,44 @@ function renderGantt() {
       if (e < s) return '';
       const x = Math.round((s - minDate) / 86400000) * pxPerDay;
       const w = Math.max(4, Math.round((e - s) / 86400000) * pxPerDay);
-      return `<rect x="${x}" y="${y + yOff}" width="${w}" height="${h}" rx="4" fill="${clr}" opacity="${opacity}"/>`;
+      const gid = 'gsh' + i;
+      return `<rect x="${x}" y="${y + yOff}" width="${w}" height="${h}" rx="${Math.min(9, h/2)}" fill="${clr}" opacity="${opacity}"/>` +
+             `<rect x="${x}" y="${y + yOff}" width="${w}" height="${Math.ceil(h/2)}" rx="${Math.min(9, h/2)}" fill="url(#${gid})"/>`;
     };
 
     const marker = (dateStr, icon, clr) => {
       if (!dateStr) return '';
       const d = new Date(dateStr + 'T00:00:00');
       const x = Math.round((d - minDate) / 86400000) * pxPerDay;
-      return `<text x="${x}" y="${y + 20}" font-size="13" text-anchor="middle" title="${icon}: ${formatDateDisplay(dateStr)}">${icon}</text>`;
+      return `<circle cx="${x}" cy="${y + 15}" r="9" fill="${clr}" opacity="0.18"/>` +
+             `<text x="${x}" y="${y + 20}" font-size="12" text-anchor="middle"><title>${icon}: ${formatDateDisplay(dateStr)}</title>${icon}</text>`;
     };
 
     // QA execution bar (buildDate → qaDate)
-    bars += bar(buildDate, qaDate, color, 0.85, 18, 6);
+    bars += bar(buildDate, qaDate, color, 0.9, 18, 6);
     // Release marker
     bars += marker(relDate, '📅', '#7c3aed');
     // Go ahead marker
     bars += marker(gaDate, '🚀', '#10b981');
 
-    labels += `<div style="height:${rowH}px; display:flex; align-items:center; padding:0 10px; font-size:12px; color:var(--text); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-bottom:1px solid var(--border-soft);">${escapeHtml(proj.name)}</div>`;
+    labels += `<div style="height:${rowH}px; display:flex; align-items:center; gap:6px; padding:0 10px; font-size:12px; color:var(--text); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-bottom:1px solid var(--border-soft); background:${i%2===1?'var(--panel-2)':'transparent'};"><span style="width:7px; height:7px; border-radius:50%; background:${color}; flex-shrink:0;"></span>${escapeHtml(proj.name)}</div>`;
   });
+
+  const gradDefs = projects.map((_, i) => `<linearGradient id="gsh${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>`).join('');
 
   // Today line
   const todayX = todayOffset * pxPerDay;
-  const todayLine = `<line x1="${todayX}" y1="0" x2="${todayX}" y2="${projects.length * rowH + 30}" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,3"/>
-    <text x="${todayX + 4}" y="14" font-size="9" fill="#ef4444" font-family="Inter,sans-serif" font-weight="700">TODAY</text>`;
+  const todayLine = `<line x1="${todayX}" y1="16" x2="${todayX}" y2="${projects.length * rowH + 30}" stroke="#7c3aed" stroke-width="2"/>
+    <rect x="${todayX - 18}" y="2" width="36" height="14" rx="7" fill="#7c3aed"/>
+    <text x="${todayX}" y="12" font-size="9" fill="white" text-anchor="middle" font-family="Inter,sans-serif" font-weight="700">TODAY</text>`;
 
   container.innerHTML = `
-    <div style="display:flex; user-select:none;">
+    <div style="display:flex; user-select:none; border-radius:10px; overflow:hidden; border:1px solid var(--border-soft);">
       <div style="width:${labelW}px; flex-shrink:0; padding-top:30px; border-right:1px solid var(--border-soft);">${labels}</div>
       <div style="overflow-x:auto; flex:1;">
         <svg width="${totalWidth}" height="${projects.length * rowH + 36}" style="display:block;">
+          <defs>${gradDefs}</defs>
+          ${stripes}
           ${months}
           ${todayLine}
           ${bars}
@@ -12802,11 +12814,14 @@ function renderGantt() {
         </svg>
       </div>
     </div>
-    <div style="display:flex; gap:16px; margin-top:10px; font-size:11px; color:var(--text-faint); flex-wrap:wrap; padding-left:${labelW}px;">
-      <span>🟩 Bar = Dev to QA → QA completion</span>
+    <div style="display:flex; align-items:center; gap:16px; margin-top:10px; font-size:11px; color:var(--text-faint); flex-wrap:wrap; padding-left:${labelW}px;">
+      <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px; height:10px; border-radius:3px; background:#22c55e; display:inline-block;"></span>Completed</span>
+      <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px; height:10px; border-radius:3px; background:#f59e0b; display:inline-block;"></span>In progress</span>
+      <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px; height:10px; border-radius:3px; background:#ef4444; display:inline-block;"></span>Blocked</span>
+      <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px; height:10px; border-radius:3px; background:#94a3b8; display:inline-block;"></span>Not started</span>
       <span>📅 Release/GA date</span>
       <span>🚀 Go ahead date</span>
-      <span style="color:#ef4444; font-weight:600;">— Today</span>
+      <span style="display:flex; align-items:center; gap:5px; color:#7c3aed; font-weight:600;"><span style="width:2px; height:12px; background:#7c3aed; display:inline-block;"></span>Today</span>
     </div>`;
 }
 
