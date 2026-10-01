@@ -9760,9 +9760,14 @@ function populateTestPlanProjectSelect() {
     selectedTestPlanProjectId = filteredProjects[0].id;
   }
 
-  sel.innerHTML = filteredProjects.map(p =>
+  const newOptionsHtml = filteredProjects.map(p =>
     `<option value="${p.id}" ${p.id === selectedTestPlanProjectId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
   ).join('');
+  if (sel.innerHTML !== newOptionsHtml) {
+    sel.innerHTML = newOptionsHtml;
+  } else if (sel.value !== selectedTestPlanProjectId) {
+    sel.value = selectedTestPlanProjectId;
+  }
 
   body.style.display = 'block';
 }
