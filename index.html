@@ -9970,7 +9970,8 @@ function updateCalculatedCasesPreview() {
 
 // ── Test Plan Draft System ────────────────────────────────
 const DRAFT_KEY_PREFIX = 'tl_testplan_draft_';
-const _draftConflictChecked = new Set(); // projects already checked this session — avoids re-checking on every render
+const _draftConflictChecked = new Set(); // projects genuinely resolved (user chose discard/keep) this session
+let _draftBannerActiveFor = null; // project id with an unresolved conflict banner currently up, if any
 
 // Save a test plan draft with a timestamp, so we can later tell if it's
 // older or newer than what's published in the DB.
@@ -10044,6 +10045,7 @@ async function resolveDraftConflict(projId, choice) {
 
   removeDraftConflictBanner();
   _draftConflictChecked.add(projId);
+  _draftBannerActiveFor = null;
   if (choice === 'discard') {
     localStorage.removeItem(DRAFT_KEY_PREFIX + projId);
     await loadFullTestPlanFromDB(projId);
@@ -10083,10 +10085,23 @@ async function handleTestPlanDraftOnOpen(projId) {
     return;
   }
 
+  if (_draftBannerActiveFor === projId) {
+    if (document.getElementById('draftConflictBar')) {
+      // Banner is already showing for this exact project and awaiting a choice —
+      // don't re-run the DB check, but don't mark it resolved either.
+      return;
+    }
+    // Tracker says it should be showing, but it isn't in the DOM (e.g. got
+    // wiped by a render elsewhere) — fall through and re-show it below.
+  }
+
   const dbUpdated = await getTestPlanDbLastUpdated(projId);
   if (dbUpdated !== null && dbUpdated > draft.savedAt) {
-    // DB has newer data than this draft — ask, don't silently overwrite
-    _draftConflictChecked.add(projId);
+    // DB has newer data than this draft — ask, don't silently overwrite.
+    // Only tracks "a banner is up for this project" — NOT marked as resolved
+    // until the user actually clicks a choice, so navigating away and back
+    // without choosing will correctly show the banner again.
+    _draftBannerActiveFor = projId;
     showDraftConflictBanner(projId, draft.plan);
     // Still show DB data underneath while the banner is up, so the page isn't stuck on nothing
     await loadFullTestPlanFromDB(projId);
@@ -10757,7 +10772,7 @@ function renderTestPlan() {
   // after that, state.testPlans already reflects the resolved decision.
   const draftKey = DRAFT_KEY_PREFIX + selectedTestPlanProjectId;
   const draftRaw = localStorage.getItem(draftKey);
-  if (draftRaw && !_draftConflictChecked.has(selectedTestPlanProjectId)) {
+  if (draftRaw && !_draftConflictChecked.has(selectedTestPlanProjectId) && _draftBannerActiveFor !== selectedTestPlanProjectId) {
     try {
       const quick = parseTestPlanDraft(draftRaw);
       if (!state.testPlans) state.testPlans = {};
