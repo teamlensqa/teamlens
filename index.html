@@ -9976,6 +9976,9 @@ const _draftConflictChecked = new Set(); // projects already checked this sessio
 // older or newer than what's published in the DB.
 function saveTestPlanDraftToStorage(plan) {
   if (!selectedTestPlanProjectId) return;
+  // While a draft-conflict banner is showing, don't let any interaction
+  // silently overwrite the original draft before the user has chosen.
+  if (document.getElementById('draftConflictBar')) return;
   localStorage.setItem(DRAFT_KEY_PREFIX + selectedTestPlanProjectId, JSON.stringify({ savedAt: Date.now(), plan: plan }));
 }
 
