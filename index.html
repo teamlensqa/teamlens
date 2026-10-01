@@ -10032,6 +10032,16 @@ function removeDraftConflictBanner() {
 }
 
 async function resolveDraftConflict(projId, choice) {
+  if (choice === 'keep') {
+    const sure = confirm(
+      '⚠️ Your draft is based on OLDER data than what is now published.\n\n' +
+      'If you keep editing and then Publish, you will OVERWRITE the newer changes someone else already published.\n\n' +
+      'Talk to them first if you\'re not sure what changed.\n\n' +
+      'Keep your draft anyway?'
+    );
+    if (!sure) return; // banner stays up — they can choose again
+  }
+
   removeDraftConflictBanner();
   _draftConflictChecked.add(projId);
   if (choice === 'discard') {
@@ -10051,7 +10061,7 @@ async function resolveDraftConflict(projId, choice) {
       clearRenderCache();
       renderTestPlan();
     } catch(e) {}
-    showToastMsg('📝 Keeping your local draft — remember to Publish when ready');
+    showToastMsg('⚠️ Keeping your outdated draft — publishing will overwrite the newer changes');
   }
 }
 
@@ -10127,6 +10137,26 @@ function saveDraft() {
 async function publishDraft() {
   if (!selectedTestPlanProjectId) return;
   try {
+    // Final safety check — in case someone else published since this page was
+    // last opened/refreshed, without requiring the user to reload first.
+    const draftKey = DRAFT_KEY_PREFIX + selectedTestPlanProjectId;
+    const draftRaw = localStorage.getItem(draftKey);
+    if (draftRaw) {
+      try {
+        const draft = parseTestPlanDraft(draftRaw);
+        const dbUpdated = await getTestPlanDbLastUpdated(selectedTestPlanProjectId);
+        if (dbUpdated !== null && dbUpdated > draft.savedAt) {
+          const proceed = confirm(
+            '⚠️ Someone else has published newer changes to this test plan since you started editing.\n\n' +
+            'Publishing now will OVERWRITE their changes.\n\n' +
+            'Recommended: Cancel, then reopen this test plan to see what changed before deciding.\n\n' +
+            'Publish anyway and overwrite their changes?'
+          );
+          if (!proceed) return;
+        }
+      } catch(e) { /* if the check itself fails, don't block publishing */ }
+    }
+
     const plan = getTestPlanForProject(selectedTestPlanProjectId);
     syncTestPlanToProjects();
 
