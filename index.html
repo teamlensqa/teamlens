@@ -9778,29 +9778,24 @@ function onTestPlanProjectChange() {
   selectedTestPlanProjectId = document.getElementById('testPlanProjectSelect').value;
   if (!selectedTestPlanProjectId) { renderTestPlan(); return; }
 
-  // Check if local draft exists — use it, don\'t overwrite with DB
   const draftKey = DRAFT_KEY_PREFIX + selectedTestPlanProjectId;
   const draft = localStorage.getItem(draftKey);
 
   if (draft) {
-    // Draft exists — load it and show draft bar
-    try {
-      const plan = JSON.parse(draft);
-      if (!state.testPlans) state.testPlans = {};
-      state.testPlans[selectedTestPlanProjectId] = plan;
-      markTestPlanDirty();
+    handleTestPlanDraftOnOpen(selectedTestPlanProjectId).then(() => {
       syncTestPlanToProjects();
       renderTestPlan();
-      showToastMsg('📝 Local draft restored — Publish when ready');
-    } catch(e) {
-      // Draft corrupt — load from DB
+      if (!document.getElementById('draftConflictBar')) {
+        showToastMsg('📝 Local draft restored — Publish when ready');
+      }
+    }).catch(() => {
       localStorage.removeItem(draftKey);
       loadFullTestPlanFromDB(selectedTestPlanProjectId).then(() => {
         clearDraftBar();
         syncTestPlanToProjects();
         renderTestPlan();
       });
-    }
+    });
   } else {
     // No draft — load fresh from DB
     clearDraftBar();
@@ -9975,6 +9970,123 @@ function updateCalculatedCasesPreview() {
 
 // ── Test Plan Draft System ────────────────────────────────
 const DRAFT_KEY_PREFIX = 'tl_testplan_draft_';
+const _draftConflictChecked = new Set(); // projects already checked this session — avoids re-checking on every render
+
+// Save a test plan draft with a timestamp, so we can later tell if it's
+// older or newer than what's published in the DB.
+function saveTestPlanDraftToStorage(plan) {
+  if (!selectedTestPlanProjectId) return;
+  localStorage.setItem(DRAFT_KEY_PREFIX + selectedTestPlanProjectId, JSON.stringify({ savedAt: Date.now(), plan: plan }));
+}
+
+// Parse a draft from localStorage, handling both the old (unwrapped) format
+// and the new {savedAt, plan} format. Old-format drafts get savedAt: 0 —
+// treated as "unknown age", so they'll always defer to the DB if DB has data.
+function parseTestPlanDraft(raw) {
+  const parsed = JSON.parse(raw);
+  if (parsed && typeof parsed === 'object' && 'plan' in parsed && 'savedAt' in parsed) {
+    return { plan: parsed.plan, savedAt: parsed.savedAt };
+  }
+  return { plan: parsed, savedAt: 0 };
+}
+
+// Find the most recent updated_at across this project's test plan tables in the DB.
+async function getTestPlanDbLastUpdated(projId) {
+  if (!sbClient || !projId) return null;
+  try {
+    const [buf, env, ms] = await Promise.all([
+      sbClient.from('test_plan_buffer').select('updated_at').eq('project_id', projId).maybeSingle(),
+      sbClient.from('test_plan_environments').select('updated_at').eq('project_id', projId).order('updated_at', { ascending: false }).limit(1).maybeSingle(),
+      sbClient.from('test_plan_milestones').select('updated_at').eq('project_id', projId).maybeSingle()
+    ]);
+    const times = [buf?.data?.updated_at, env?.data?.updated_at, ms?.data?.updated_at]
+      .filter(Boolean).map(t => new Date(t).getTime());
+    return times.length > 0 ? Math.max(...times) : null;
+  } catch(e) { console.warn('getTestPlanDbLastUpdated error:', e); return null; }
+}
+
+// Shows a persistent, explicit choice banner instead of silently restoring
+// a draft that's older than what's now published in the DB.
+function showDraftConflictBanner(projId, draftPlan) {
+  const barId = 'draftConflictBar';
+  let bar = document.getElementById(barId);
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = barId;
+    document.body.appendChild(bar);
+  }
+  bar.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:9999; background:#fef3c7; border-bottom:2px solid #f59e0b; padding:10px 20px; display:flex; align-items:center; justify-content:center; gap:14px; font-size:13px; color:#78350f; flex-wrap:wrap;';
+  bar.innerHTML = `
+    <span>⚠️ Someone has published newer test plan data for this release since you last had it open. Your local draft is outdated.</span>
+    <button onclick="resolveDraftConflict('${projId}', 'discard')" style="background:#f59e0b; color:white; border:none; padding:5px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">Load latest (discard my draft)</button>
+    <button onclick="resolveDraftConflict('${projId}', 'keep')" style="background:transparent; border:1px solid #92400e; color:#78350f; padding:5px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">Keep my draft</button>
+  `;
+}
+
+function removeDraftConflictBanner() {
+  const bar = document.getElementById('draftConflictBar');
+  if (bar) bar.remove();
+}
+
+async function resolveDraftConflict(projId, choice) {
+  removeDraftConflictBanner();
+  _draftConflictChecked.add(projId);
+  if (choice === 'discard') {
+    localStorage.removeItem(DRAFT_KEY_PREFIX + projId);
+    await loadFullTestPlanFromDB(projId);
+    syncTestPlanToProjects();
+    clearRenderCache();
+    renderTestPlan();
+    showToastMsg('✅ Loaded the latest published test plan');
+  } else {
+    try {
+      const draft = parseTestPlanDraft(localStorage.getItem(DRAFT_KEY_PREFIX + projId));
+      if (!state.testPlans) state.testPlans = {};
+      state.testPlans[projId] = draft.plan;
+      markTestPlanDirty();
+      syncTestPlanToProjects();
+      clearRenderCache();
+      renderTestPlan();
+    } catch(e) {}
+    showToastMsg('📝 Keeping your local draft — remember to Publish when ready');
+  }
+}
+
+// Central entry point: call this whenever a project's test plan is about to
+// be shown, to decide whether to restore the draft, load from DB, or ask.
+async function handleTestPlanDraftOnOpen(projId) {
+  const draftKey = DRAFT_KEY_PREFIX + projId;
+  const raw = localStorage.getItem(draftKey);
+  if (!raw) return; // no draft — normal DB load proceeds elsewhere, untouched
+
+  let draft;
+  try { draft = parseTestPlanDraft(raw); }
+  catch(e) { localStorage.removeItem(draftKey); return; }
+
+  if (_draftConflictChecked.has(projId)) {
+    // Already resolved this session — just keep the draft in state, no re-check
+    if (!state.testPlans) state.testPlans = {};
+    state.testPlans[projId] = draft.plan;
+    return;
+  }
+
+  const dbUpdated = await getTestPlanDbLastUpdated(projId);
+  if (dbUpdated !== null && dbUpdated > draft.savedAt) {
+    // DB has newer data than this draft — ask, don't silently overwrite
+    _draftConflictChecked.add(projId);
+    showDraftConflictBanner(projId, draft.plan);
+    // Still show DB data underneath while the banner is up, so the page isn't stuck on nothing
+    await loadFullTestPlanFromDB(projId);
+    syncTestPlanToProjects();
+  } else {
+    // Draft is current — restore as before
+    if (!state.testPlans) state.testPlans = {};
+    state.testPlans[projId] = draft.plan;
+    markTestPlanDirty();
+    _draftConflictChecked.add(projId);
+  }
+}
+
 
 function markTestPlanDirty() {
   const bar = document.getElementById('testPlanDraftBar');
@@ -10120,7 +10232,7 @@ function saveTestRow() {
   // Save locally only — DB save happens on Publish
   if (selectedTestPlanProjectId) {
     const plan = getTestPlanForProject(selectedTestPlanProjectId);
-    localStorage.setItem(DRAFT_KEY_PREFIX + selectedTestPlanProjectId, JSON.stringify(plan));
+    saveTestPlanDraftToStorage(plan);
   }
   markTestPlanDirty();
   renderTestPlan();
@@ -10134,7 +10246,7 @@ function deleteTestRow(id) {
   plan.rows = plan.rows.filter(r => r.id !== id);
   // Save locally only — DB save happens on Publish
   if (selectedTestPlanProjectId) {
-    localStorage.setItem(DRAFT_KEY_PREFIX + selectedTestPlanProjectId, JSON.stringify(plan));
+    saveTestPlanDraftToStorage(plan);
   }
   markTestPlanDirty();
   renderTestPlan();
@@ -10193,7 +10305,7 @@ function renderBufferRows() {
 function saveBufferDraft() {
   if (!selectedTestPlanProjectId) return;
   const plan = getTestPlanForProject(selectedTestPlanProjectId);
-  localStorage.setItem(DRAFT_KEY_PREFIX + selectedTestPlanProjectId, JSON.stringify(plan));
+  saveTestPlanDraftToStorage(plan);
   markTestPlanDirty();
 }
 
@@ -10411,7 +10523,7 @@ function saveDimensionChecklist() {
   const plan = getTestPlanForProject(selectedTestPlanProjectId);
   if (!plan || !selectedTestPlanProjectId) return;
   // Save locally only — DB save happens on Publish (same as Buffer / Milestones)
-  localStorage.setItem(DRAFT_KEY_PREFIX + selectedTestPlanProjectId, JSON.stringify(plan));
+  saveTestPlanDraftToStorage(plan);
   markTestPlanDirty();
 }
 
@@ -10561,7 +10673,7 @@ function saveBufferValues() {
   // Save locally only — DB save happens on Publish
   if (selectedTestPlanProjectId) {
     const plan = getTestPlanForProject(selectedTestPlanProjectId);
-    localStorage.setItem(DRAFT_KEY_PREFIX + selectedTestPlanProjectId, JSON.stringify(plan));
+    saveTestPlanDraftToStorage(plan);
   }
   markTestPlanDirty();
   renderTestPlan();
@@ -10598,7 +10710,7 @@ async function saveMilestones() {
   // Save locally only — DB save happens on Publish
   if (selectedTestPlanProjectId) {
     const plan = getTestPlanForProject(selectedTestPlanProjectId);
-    localStorage.setItem(DRAFT_KEY_PREFIX + selectedTestPlanProjectId, JSON.stringify(plan));
+    saveTestPlanDraftToStorage(plan);
   }
   markTestPlanDirty();
   renderTestPlan();
@@ -10608,16 +10720,22 @@ function renderTestPlan() {
   populateTestPlanProjectSelect();
   if (!selectedTestPlanProjectId) return;
 
-  // Check draft — show it if exists
+  // Check draft — only run the conflict check once per project per session;
+  // after that, state.testPlans already reflects the resolved decision.
   const draftKey = DRAFT_KEY_PREFIX + selectedTestPlanProjectId;
-  const draft = localStorage.getItem(draftKey);
-  if (draft) {
+  const draftRaw = localStorage.getItem(draftKey);
+  if (draftRaw && !_draftConflictChecked.has(selectedTestPlanProjectId)) {
     try {
-      const plan = JSON.parse(draft);
+      const quick = parseTestPlanDraft(draftRaw);
       if (!state.testPlans) state.testPlans = {};
-      state.testPlans[selectedTestPlanProjectId] = plan;
+      state.testPlans[selectedTestPlanProjectId] = quick.plan;
       markTestPlanDirty();
     } catch(e) { localStorage.removeItem(draftKey); }
+    handleTestPlanDraftOnOpen(selectedTestPlanProjectId).then(() => {
+      syncTestPlanToProjects();
+      clearRenderCache();
+      renderTestPlan();
+    });
   }
 
   const plan = getTestPlanForProject(selectedTestPlanProjectId);
