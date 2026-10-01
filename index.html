@@ -10024,11 +10024,23 @@ function showDraftConflictBanner(projId, draftPlan) {
     bar.id = barId;
     document.body.appendChild(bar);
   }
-  bar.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:9999; background:#fef3c7; border-bottom:2px solid #f59e0b; padding:10px 20px; display:flex; align-items:center; justify-content:center; gap:14px; font-size:13px; color:#78350f; flex-wrap:wrap;';
+  bar.style.cssText = 'position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:9999; max-width:720px; width:calc(100% - 32px); background:linear-gradient(135deg,#fffbeb,#fef3c7); border:1.5px solid #f59e0b; border-radius:14px; box-shadow:0 8px 24px rgba(245,158,11,0.25); padding:16px 20px;';
   bar.innerHTML = `
-    <span>⚠️ Someone has published newer test plan data for this release since you last had it open. Your local draft is outdated.</span>
-    <button onclick="resolveDraftConflict('${projId}', 'discard')" style="background:#f59e0b; color:white; border:none; padding:5px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">Load latest (discard my draft)</button>
-    <button onclick="resolveDraftConflict('${projId}', 'keep')" style="background:transparent; border:1px solid #92400e; color:#78350f; padding:5px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">Keep my draft</button>
+    <div style="display:flex; gap:12px; align-items:flex-start;">
+      <span style="font-size:22px; flex-shrink:0;">⚠️</span>
+      <div style="flex:1; min-width:0;">
+        <div style="font-size:13.5px; font-weight:700; color:#78350f; margin-bottom:4px;">Newer test plan data is available</div>
+        <div style="font-size:12.5px; color:#92400e; line-height:1.5; margin-bottom:10px;">
+          Someone has published changes to this release's test plan since you last had it open. Your local draft is now outdated.
+          <br><strong>If you want to switch to a different test plan, please refresh this page first</strong> — that ensures the dropdown and data stay fully in sync.
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button onclick="resolveDraftConflict('${projId}', 'discard')" style="background:linear-gradient(135deg,#f59e0b,#d97706); color:white; border:none; padding:7px 14px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; box-shadow:0 2px 6px rgba(217,119,6,0.3);">Load latest (discard my draft)</button>
+          <button onclick="resolveDraftConflict('${projId}', 'keep')" style="background:white; border:1.5px solid #d97706; color:#92400e; padding:7px 14px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Keep my draft</button>
+          <button onclick="location.reload()" style="background:transparent; border:1.5px solid #92400e; color:#78350f; padding:7px 14px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">🔄 Refresh page</button>
+        </div>
+      </div>
+    </div>
   `;
 }
 
