@@ -14429,11 +14429,51 @@ function populateDpYears() {
   ySel.value = String(dayYear);
 }
 
-const DP_COLORS = ['#4f7cff', '#3ecf8e', '#e8a23e', '#e35d5d', '#b07ae8', '#3eb8cf', '#cf8e3e', '#8ecf3e'];
-function colorForProject(name) {
+// First 8 are the original colors (kept so existing look is preserved), followed by 12 more distinct ones.
+const DP_COLORS = [
+  '#4f7cff', '#3ecf8e', '#e8a23e', '#e35d5d', '#b07ae8', '#3eb8cf', '#cf8e3e', '#8ecf3e',
+  '#e85d9e', '#2bb3a3', '#c95de8', '#f07a3e', '#6a6ae8', '#b5b83e', '#a67c5b', '#6b8fa8',
+  '#e8607a', '#4aa8f0', '#7fbf6a', '#d1a3e8'
+];
+let _dpColorMap = {};
+let _dpColorSig = '';
+
+function _dpNameHash(name) {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  return DP_COLORS[hash % DP_COLORS.length];
+  return hash;
+}
+
+// Gives each release item currently in use its own color (no two share one until
+// the palette runs out). Each name starts at its usual hash slot and only moves to the
+// next free slot if that one is taken, so colors stay as stable as possible.
+function rebuildDpColorMap() {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 45);
+  const cutoffKey = toDateKey(cutoff);
+  const names = [...new Set((state.dailyPlan || [])
+    .filter(e => e && e.project && (!e.date || e.date >= cutoffKey))
+    .map(e => e.project))].sort();
+  const sig = names.join('|');
+  if (sig === _dpColorSig) return;
+  _dpColorSig = sig;
+  _dpColorMap = {};
+  const used = new Array(DP_COLORS.length).fill(false);
+  let assigned = 0;
+  names.forEach(n => {
+    if (assigned >= DP_COLORS.length) return; // palette exhausted — falls back to hash color
+    let slot = _dpNameHash(n) % DP_COLORS.length;
+    while (used[slot]) slot = (slot + 1) % DP_COLORS.length;
+    used[slot] = true;
+    _dpColorMap[n] = DP_COLORS[slot];
+    assigned++;
+  });
+}
+
+function colorForProject(name) {
+  if (!name) return DP_COLORS[0];
+  if (_dpColorMap[name]) return _dpColorMap[name];
+  return DP_COLORS[_dpNameHash(name) % DP_COLORS.length];
 }
 
 function toDateKey(dateObj) {
@@ -14717,6 +14757,7 @@ async function dpDrop(event, targetPersonId, targetDate) {
 }
 
 function renderDailyPlan() {
+  rebuildDpColorMap();
   renderResourceAvailability();
   // Sync month/year dropdowns
   populateDpYears();
