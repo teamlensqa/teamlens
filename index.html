@@ -14187,7 +14187,7 @@ function renderLeaveSummary() {
 }
 
 // ====================== DAILY PLAN ======================
-function openDailyPlanModal(personId, dateKey) {
+function openDailyPlanModal(personId, dateKey, forceNew) {
   const sel = document.getElementById('dpPerson');
   const todayStr = toLocalDateKey(new Date());
 
@@ -14220,7 +14220,7 @@ function openDailyPlanModal(personId, dateKey) {
   if (personId) sel.value = personId;
 
   // Auto-populate release item if person already has assignment on that date
-  if (personId && dateKey) {
+  if (personId && dateKey && !forceNew) {
     const existing = state.dailyPlan.find(e => e.personId === personId && e.date === dateKey);
     if (existing) {
       document.getElementById('dpProject').value = existing.project;
@@ -14968,6 +14968,7 @@ function renderDailyPlan() {
           return `<div
             data-entry-id="${e.id}" data-person-id="${p.id}" data-date="${dateKey}"
             ${canEditDP ? `draggable="true" ondragstart="dpDragStart(event,'${e.id}','${p.id}','${dateKey}')"` : ''}
+            onclick="event.stopPropagation()"
             style="background:${color}12;border-left:2.5px solid ${color};border-radius:0 4px 4px 0;margin:1px 0;padding:2px 4px 2px 5px;position:relative;${canEditDP?'cursor:grab;':''}"
             onmouseenter="this.querySelector('.dp-actions').style.display='flex'"
             onmouseleave="this.querySelector('.dp-actions').style.display='none'">
@@ -14979,7 +14980,8 @@ function renderDailyPlan() {
         html += `<div class="cal-cell day-cell dp-drop-zone"
           data-person-id="${p.id}" data-date="${dateKey}"
           ondragover="dpDragOver(event)" ondragleave="dpDragLeave(event)" ondrop="dpDrop(event,'${p.id}','${dateKey}')"
-          style="text-align:left;padding:2px 3px;">${segs}</div>`;
+          ${canEdit('dailyplan') ? `onclick="openDailyPlanModal('${p.id}','${dateKey}',true)"` : ''}
+          style="text-align:left;padding:2px 3px;${canEdit('dailyplan') ? 'cursor:pointer;' : ''}">${segs}</div>`;
       } else {
         const canEditDP2 = canEdit('dailyplan');
         const showPaste = _dpClipboard && canEditDP2;
