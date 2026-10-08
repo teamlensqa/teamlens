@@ -15315,6 +15315,12 @@ function deleteMergedBuildDateRow(rowId) {
 // ====================== ENGG BUILD REPORT ======================
 let ebrPeriod = 'all';
 let _ebrLastFilteredBuilds = [];
+let ebrMetricFilter = null; // null | 'unplanned' | 'bvt' — set by clicking the tiles
+
+function setEngBuildMetricFilter(metric) {
+  ebrMetricFilter = (ebrMetricFilter === metric) ? null : metric;
+  renderEngBuildReport();
+}
 
 function showEngBuildBreakdown(metric) {
   const labels = { total: '📦 Total builds', planned: '✅ Planned builds', unplanned: '⚡ Unplanned builds', bvt: '🚨 BVT failed' };
@@ -15464,8 +15470,8 @@ function renderEngBuildReportInner() {
     summaryEl.innerHTML =
       '<div class="stat-card" onclick="showEngBuildBreakdown(\'total\')" style="cursor:pointer;background:linear-gradient(135deg,rgba(15,118,110,0.08),rgba(8,145,178,0.05)); border:1px solid rgba(15,118,110,0.15);"><div class="label">📦 Total builds</div><div class="value" style="color:#0f766e;">' + grandTotal + '</div></div>' +
       '<div class="stat-card" onclick="showEngBuildBreakdown(\'planned\')" style="cursor:pointer;background:linear-gradient(135deg,rgba(37,99,235,0.08),rgba(37,99,235,0.03)); border:1px solid rgba(37,99,235,0.15);"><div class="label">✅ Planned</div><div class="value" style="color:#1d4ed8;">' + grandPlanned + '</div></div>' +
-      '<div class="stat-card" onclick="showEngBuildBreakdown(\'unplanned\')" style="cursor:pointer;background:linear-gradient(135deg,rgba(217,119,6,0.08),rgba(234,179,8,0.04)); border:1px solid rgba(217,119,6,0.18);"><div class="label">⚡ Unplanned</div><div class="value" style="color:#b45309;">' + grandUnplanned + '</div></div>' +
-      '<div class="stat-card" onclick="showEngBuildBreakdown(\'bvt\')" style="cursor:pointer;background:linear-gradient(135deg,rgba(220,38,38,0.08),rgba(220,38,38,0.03)); border:1px solid rgba(220,38,38,0.18);"><div class="label">🚨 BVT failed</div><div class="value" style="color:#dc2626;">' + grandBvt + '</div></div>';
+      '<div class="stat-card" onclick="setEngBuildMetricFilter(\'unplanned\')" title="Click to show only entries with unplanned builds" style="cursor:pointer;background:linear-gradient(135deg,rgba(217,119,6,0.08),rgba(234,179,8,0.04)); border:1px solid rgba(217,119,6,0.18);' + (ebrMetricFilter==='unplanned' ? 'box-shadow:0 0 0 2px rgba(217,119,6,0.75);' : '') + '"><div class="label">⚡ Unplanned</div><div class="value" style="color:#b45309;">' + grandUnplanned + '</div></div>' +
+      '<div class="stat-card" onclick="setEngBuildMetricFilter(\'bvt\')" title="Click to show only entries with BVT failures" style="cursor:pointer;background:linear-gradient(135deg,rgba(220,38,38,0.08),rgba(220,38,38,0.03)); border:1px solid rgba(220,38,38,0.18);' + (ebrMetricFilter==='bvt' ? 'box-shadow:0 0 0 2px rgba(220,38,38,0.75);' : '') + '"><div class="label">🚨 BVT failed</div><div class="value" style="color:#dc2626;">' + grandBvt + '</div></div>';
   }
 
   if (builds.length === 0) {
@@ -15475,12 +15481,29 @@ function renderEngBuildReportInner() {
   }
   if (empty) empty.style.display = 'none';
 
+  let shownBuilds = builds;
+  if (ebrMetricFilter === 'unplanned') shownBuilds = builds.filter(b => (parseInt(b.unplannedBuilds)||0) > 0);
+  else if (ebrMetricFilter === 'bvt') shownBuilds = builds.filter(b => (parseInt(b.bvtFailed)||0) > 0);
+
+  const metricLabels = { unplanned: '⚡ unplanned builds', bvt: '🚨 BVT failures' };
+  const filterBanner = ebrMetricFilter
+    ? '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;border-radius:10px;background:var(--panel-2);border:1px solid var(--border-soft);font-size:12px;color:var(--text-dim);">' +
+        'Showing only entries with <strong style="color:var(--text);">' + metricLabels[ebrMetricFilter] + '</strong> · ' + shownBuilds.length + ' of ' + builds.length + ' entries' +
+        '<button class="ghost" onclick="setEngBuildMetricFilter(null)" style="font-size:11px;padding:3px 10px;margin-left:auto;">✕ Show all</button>' +
+      '</div>'
+    : '';
+
+  if (shownBuilds.length === 0) {
+    list.innerHTML = filterBanner + '<div style="font-size:13px;color:var(--text-faint);font-style:italic;text-align:center;padding:20px;">No entries with ' + metricLabels[ebrMetricFilter] + ' for the current filter.</div>';
+    return;
+  }
+
   const groups = {};
-  builds.forEach(b => { const k = b.component || 'Unassigned'; (groups[k] = groups[k] || []).push(b); });
+  shownBuilds.forEach(b => { const k = b.component || 'Unassigned'; (groups[k] = groups[k] || []).push(b); });
   const compNames = Object.keys(groups).sort();
   const canEditBR = canEdit('buildreport');
 
-  list.innerHTML = compNames.map(comp => {
+  list.innerHTML = filterBanner + compNames.map(comp => {
     const entries = groups[comp].slice().sort((a,b) => (a.gaDate||'').localeCompare(b.gaDate||''));
     const total = entries.reduce((s,e) => s + (parseInt(e.plannedBuilds)||0) + (parseInt(e.unplannedBuilds)||0), 0);
     const planned = entries.reduce((s,e) => s + (parseInt(e.plannedBuilds)||0), 0);
@@ -15506,6 +15529,7 @@ function renderEngBuildReportInner() {
       return '<tr style="border-top:1px solid var(--border-soft);background:' + (rowIdx % 2 === 0 ? 'transparent' : 'var(--panel-2)') + ';" onmouseenter="this.style.background=\'rgba(124,58,237,0.06)\'" onmouseleave="this.style.background=\'' + (rowIdx % 2 === 0 ? 'transparent' : 'var(--panel-2)') + '\'">' +
         '<td style="padding:8px 6px;font-size:12px;white-space:nowrap;">' + (e.gaDate ? formatDateDisplay(e.gaDate) : '—') + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;white-space:normal;">' + escapeHtml(e.version||'—') + '</td>' +
+        '<td style="padding:8px 6px;font-size:12px;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.4;">' + (e.owner ? escapeHtml(e.owner) : '<span style="color:var(--text-faint);">—</span>') + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + (e.plannedBuilds||0) + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + (e.unplannedBuilds||0) + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;' + (bvtVal>0?'color:#dc2626;font-weight:700;':'') + '">' + bvtVal + '</td>' +
@@ -15534,13 +15558,14 @@ function renderEngBuildReportInner() {
           '<span>unplanned <strong style="color:#b45309;">' + unplanned + '</strong></span>' +
           '<span>bvt failed <strong style="color:' + (bvt>0?'#dc2626':'var(--text)') + ';">' + bvt + '</strong></span>' +
         '</div>' +
-        '<span id="' + accId + '-ch" style="font-size:11px;color:var(--text-faint);">▼</span>' +
+        '<span id="' + accId + '-ch" style="font-size:11px;color:var(--text-faint);">' + (ebrMetricFilter ? '▲' : '▼') + '</span>' +
       '</div>' +
-      '<div id="' + accId + '" style="display:none;padding:0 16px 14px;overflow-x:auto;overflow-y:auto;max-height:420px;">' +
-        '<table style="width:100%;min-width:1120px;border-collapse:collapse;table-layout:fixed;">' +
+      '<div id="' + accId + '" style="display:' + (ebrMetricFilter ? 'block' : 'none') + ';padding:0 16px 14px;overflow-x:auto;overflow-y:auto;max-height:420px;">' +
+        '<table style="width:100%;min-width:1270px;border-collapse:collapse;table-layout:fixed;">' +
           '<colgroup>' +
             '<col style="width:100px;">' +
             '<col style="width:100px;">' +
+            '<col style="width:150px;">' +
             '<col style="width:80px;">' +
             '<col style="width:90px;">' +
             '<col style="width:80px;">' +
@@ -15552,6 +15577,7 @@ function renderEngBuildReportInner() {
           '<thead><tr style="position:sticky;top:0;background:var(--panel);z-index:1;">' +
             '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">GA date</th>' +
             '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Version</th>' +
+            '<th style="text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Dev release owner</th>' +
             '<th style="text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Planned</th>' +
             '<th style="text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">Unplanned</th>' +
             '<th style="text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-faint);padding:6px;">BVT failed</th>' +
@@ -15724,6 +15750,8 @@ function openEngBuildReportInTab() {
       return proj && proj.name && proj.name.toLowerCase().includes(featureFilter);
     }));
   }
+  if (ebrMetricFilter === 'unplanned') builds = builds.filter(b => (parseInt(b.unplannedBuilds)||0) > 0);
+  else if (ebrMetricFilter === 'bvt') builds = builds.filter(b => (parseInt(b.bvtFailed)||0) > 0);
   if (start || end) {
     builds = builds.filter(b => {
       if (!b.gaDate) return false;
@@ -15738,6 +15766,8 @@ function openEngBuildReportInTab() {
   let title = 'Engg Build Report — ' + periodLabels[ebrPeriod];
   if (compFilter) title += ' · ' + compFilter;
   if (featureFilter) title += ' · Feature: ' + document.getElementById('ebrFeatureFilter').value.trim();
+  if (ebrMetricFilter === 'unplanned') title += ' · Unplanned builds only';
+  else if (ebrMetricFilter === 'bvt') title += ' · BVT failures only';
 
   const groups = {};
   builds.forEach(b => { const k = b.component || 'Unassigned'; (groups[k] = groups[k] || []).push(b); });
@@ -15779,7 +15809,7 @@ function openEngBuildReportInTab() {
     }).join('');
     return '<div class="project-card"><div class="project-card-body"><div class="section-label">' + escapeHtml(comp) + '</div>' +
       '<div class="matrix-wrap"><table class="matrix-table"><thead><tr>' +
-        '<th>GA date</th><th>Version</th><th>Owner</th><th class="r">Planned</th><th class="r">Unplanned</th><th class="r">BVT failed</th><th>Tagged items</th><th>Identified by</th><th>Reason</th><th>Comments</th>' +
+        '<th>GA date</th><th>Version</th><th>Dev release owner</th><th class="r">Planned</th><th class="r">Unplanned</th><th class="r">BVT failed</th><th>Tagged items</th><th>Identified by</th><th>Reason</th><th>Comments</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div></div></div>';
   }).join('');
 
