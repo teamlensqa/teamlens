@@ -2919,23 +2919,43 @@ async function deleteTestPlan(projectId) {
 
 // Save individual daily plan entry
 async function saveDailyPlanEntry(entry) {
-  if (!sbClient || !entry || !entry.id) return;
+  if (!sbClient || !entry || !entry.id) return false;
   try {
-    await sbClient.from('daily_plan').upsert({
+    const { error } = await sbClient.from('daily_plan').upsert({
       id: entry.id,
       data: entry,
       team_id: currentTeamId || 'agent-qa',
       updated_at: new Date().toISOString()
     });
-  } catch(e) { console.warn('saveDailyPlanEntry error:', e); }
+    if (error) { console.warn('saveDailyPlanEntry error:', error.message); return false; }
+    return true;
+  } catch(e) { console.warn('saveDailyPlanEntry error:', e); return false; }
 }
 
 // Delete daily plan entry
+// Returns true only when the row is really gone from the DB.
 async function deleteDailyPlanEntry(entryId) {
-  if (!sbClient || !entryId) return;
+  if (!sbClient || !entryId) return false;
   try {
-    await sbClient.from('daily_plan').delete().eq('id', entryId);
-  } catch(e) { console.warn('deleteDailyPlanEntry error:', e); }
+    const { error } = await sbClient.from('daily_plan').delete().eq('id', entryId);
+    if (error) { console.warn('deleteDailyPlanEntry error:', error.message); return false; }
+    // Row-level security can delete 0 rows without raising any error — confirm it is really gone.
+    const { data: stillThere } = await sbClient.from('daily_plan').select('id').eq('id', entryId).maybeSingle();
+    if (stillThere) { console.warn('deleteDailyPlanEntry: row still exists after delete (blocked?)', entryId); return false; }
+    return true;
+  } catch(e) { console.warn('deleteDailyPlanEntry error:', e); return false; }
+}
+
+// After an Edit: save the new entries first, and only then delete the old row,
+// so a failed save can never lose the original assignment.
+async function persistDailyPlanEdit(oldEntryId, newEntries) {
+  const saved = await Promise.all(newEntries.map(e => saveDailyPlanEntry(e)));
+  if (saved.some(r => r === false)) {
+    showToastMsg('⚠️ Some changes could not be saved. Please refresh and check the plan.');
+    return; // the old row is kept in the DB, nothing is lost
+  }
+  const ok = await deleteDailyPlanEntry(oldEntryId);
+  if (!ok) showToastMsg('⚠️ Could not remove the old entry from the database — it may reappear after refresh.');
 }
 
 // Load all releases from releases table
@@ -8851,7 +8871,9 @@ function deletePerson(id) {
   if (!confirm('Remove this person? Their allocations and daily plan entries will also be removed.')) return;
   state.people = state.people.filter(p => p.id !== id);
   state.allocations = state.allocations.filter(a => a.personId !== id);
+  const orphanedPlan = state.dailyPlan.filter(d => d.personId === id);
   state.dailyPlan = state.dailyPlan.filter(d => d.personId !== id);
+  orphanedPlan.forEach(d => { if (d.id) deleteDailyPlanEntry(d.id); });
   delete state.leaves[id];
   logActivity('Person deleted', { name: person?.name || id });
   deletePeopleRecord(id);
@@ -9580,7 +9602,9 @@ function deleteProject(id) {
   state.projects = state.projects.filter(p => p.id !== id);
   if (proj) {
     state.allocations = state.allocations.filter(a => a.project !== proj.name);
+    const orphanedPlan = state.dailyPlan.filter(d => d.project === proj.name);
     state.dailyPlan = state.dailyPlan.filter(d => d.project !== proj.name);
+    orphanedPlan.forEach(d => { if (d.id) deleteDailyPlanEntry(d.id); });
     logActivity('Release item deleted', { name: proj.name });
   }
   delete state.testPlans[id];
@@ -14344,7 +14368,8 @@ function saveDailyPlan() {
   // Snapshot BEFORE any state change
   snapshotState(`Assign ${person?.name || ''} → ${project}${task ? ' · ' + task : ''}`);
 
-  // If editing — remove old entry first
+  // If editing — remove old entry first (its DB row is deleted after the new ones are saved)
+  const createdEntries = [];
   if (editId) {
     state.dailyPlan = state.dailyPlan.filter(d => d.id !== editId);
     delete modal.dataset.editId;
@@ -14354,9 +14379,11 @@ function saveDailyPlan() {
     if (!alreadyExists) {
       const newEntry = { id: uid(), personId, project, task: task || '', date };
       state.dailyPlan.push(newEntry);
-      saveDailyPlanEntry(newEntry); // Save to separate table
+      createdEntries.push(newEntry);
+      if (!editId) saveDailyPlanEntry(newEntry); // Save to separate table
     }
   });
+  if (editId) persistDailyPlanEdit(editId, createdEntries);
   logActivity('Daily plan assigned', {
     name: person?.name || personId, project,
     from: formatDateDisplay(start), to: formatDateDisplay(end)
@@ -14370,14 +14397,24 @@ function clearDailyPlanCell(personId, date, entryId) {
   const entry = state.dailyPlan.find(d => d.id === entryId || (d.personId === personId && d.date === date));
   const person = state.people.find(p => p.id === personId);
   snapshotState(`Clear daily plan: ${person?.name || ''} on ${formatDateDisplay(date)}`);
+  let removedEntries;
   if (entryId) {
+    removedEntries = state.dailyPlan.filter(d => d.id === entryId);
     state.dailyPlan = state.dailyPlan.filter(d => d.id !== entryId);
-    deleteDailyPlanEntry(entryId); // Delete from separate table
   } else {
-    const toDelete = state.dailyPlan.filter(d => d.personId === personId && d.date === date);
+    removedEntries = state.dailyPlan.filter(d => d.personId === personId && d.date === date);
     state.dailyPlan = state.dailyPlan.filter(d => !(d.personId === personId && d.date === date));
-    toDelete.forEach(d => { if (d.id) deleteDailyPlanEntry(d.id); });
   }
+  // Delete from the separate table; if the DB refuses, bring the entry back so the screen never lies
+  Promise.all(removedEntries.filter(d => d.id).map(d =>
+    deleteDailyPlanEntry(d.id).then(ok => ok ? null : d)
+  )).then(failed => {
+    failed = failed.filter(Boolean);
+    if (failed.length === 0) return;
+    failed.forEach(d => { if (!state.dailyPlan.some(x => x.id === d.id)) state.dailyPlan.push(d); });
+    renderDailyPlan();
+    showToastMsg('❌ Could not remove — check your edit access and try again.');
+  });
   if (entry) {
     logActivity('Daily plan cleared', {
       name: person?.name || personId,
